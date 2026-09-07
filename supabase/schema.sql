@@ -5,8 +5,13 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   name text,
   weekly_goal integer,
+  ai_suggestions jsonb,
+  ai_suggestions_at timestamptz,
   updated_at timestamptz not null default now()
 );
+
+alter table public.profiles add column if not exists ai_suggestions jsonb;
+alter table public.profiles add column if not exists ai_suggestions_at timestamptz;
 
 alter table public.profiles enable row level security;
 
