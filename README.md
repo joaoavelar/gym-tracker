@@ -11,7 +11,7 @@ O app é um único arquivo `index.html`, sem build, sem framework. Basta configu
 ### 1. Criar o projeto no Supabase
 
 1. Crie uma conta e um projeto em [supabase.com](https://supabase.com) (plano gratuito é suficiente).
-2. No painel do projeto, vá em **SQL Editor** → **New query**, cole o conteúdo de [`supabase/schema.sql`](supabase/schema.sql) e execute. Isso cria as tabelas `profiles`, `workouts` e `body_weight_logs` com Row Level Security (cada pessoa só acessa os próprios dados). Se você já rodou esse script numa versão anterior do app, pode rodar de novo sem problema — ele só adiciona o que estiver faltando.
+2. No painel do projeto, vá em **SQL Editor** → **New query**, cole o conteúdo de [`supabase/schema.sql`](supabase/schema.sql) e execute. Isso cria as tabelas `profiles`, `workouts`, `body_weight_logs` e `workout_photos`, o bucket de Storage `workout-photos` (privado) e as políticas de Row Level Security (cada pessoa só acessa os próprios dados e fotos). Se você já rodou esse script numa versão anterior do app, pode rodar de novo sem problema — ele só adiciona o que estiver faltando.
 3. Vá em **Project Settings > API** e copie a **Project URL** e a chave **anon public**.
 
 ### 2. Configurar o app
@@ -105,6 +105,8 @@ Abra `index.html` diretamente no navegador, ou publique a pasta em qualquer serv
 - IA que analisa o histórico de treinos e sugere grupo muscular a treinar, exercício novo, variação, progressão (ou redução) de carga e técnicas de intensidade — com explicação simples dos termos direto no app
 - Metas semanal, mensal e de peso corporal, com registro de peso e gráfico de evolução
 - Botão para abrir uma busca de imagens do exercício no navegador, pra conferir a execução correta
+- Foto opcional ao concluir o treino, guardada com segurança (bucket privado, só você acessa)
+- Histórico clicável: toque num dia pra ver o resumo completo do treino e a foto, se registrada
 
 ## Stack
 

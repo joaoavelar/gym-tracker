@@ -68,3 +68,34 @@ create policy "Users manage their own weight logs"
   with check (auth.uid() = user_id);
 
 create index if not exists body_weight_logs_user_date_idx on public.body_weight_logs (user_id, date);
+
+create table if not exists public.workout_photos (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  date date not null,
+  storage_path text not null,
+  created_at timestamptz not null default now(),
+  unique (user_id, date)
+);
+
+alter table public.workout_photos enable row level security;
+
+drop policy if exists "Users manage their own workout photo records" on public.workout_photos;
+create policy "Users manage their own workout photo records"
+  on public.workout_photos
+  for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- Bucket privado para as fotos de treino (URLs assinadas, ninguém acessa
+-- direto sem passar pelas policies abaixo).
+insert into storage.buckets (id, name, public)
+values ('workout-photos', 'workout-photos', false)
+on conflict (id) do nothing;
+
+drop policy if exists "Users manage their own workout photo files" on storage.objects;
+create policy "Users manage their own workout photo files"
+  on storage.objects
+  for all
+  using (bucket_id = 'workout-photos' and (storage.foldername(name))[1] = auth.uid()::text)
+  with check (bucket_id = 'workout-photos' and (storage.foldername(name))[1] = auth.uid()::text);

@@ -194,6 +194,9 @@
   .weight-input-row{display:flex;gap:8px;align-items:flex-end;}
   .weight-input-row > div{flex:1;}
   .weight-input-row .btn-primary{width:auto;padding:12px 18px;margin-top:0;}
+
+  .photo-preview{width:100%;max-height:360px;object-fit:cover;border-radius:var(--radius);display:block;}
+  .photo-badge{font-size:12px;}
 </style>
 </head>
 <body>
@@ -463,6 +466,34 @@
     </div>
   </div>
 
+  <div id="view-finish" class="view hidden">
+    <div class="section" style="padding-top:70px;text-align:center;padding-bottom:0;">
+      <div style="font-size:44px;margin-bottom:14px;">🏁</div>
+      <h1 style="font-size:22px;margin-bottom:6px;">Treino concluído!</h1>
+      <div class="label" style="color:var(--text-muted);margin-bottom:8px;">Quer guardar uma foto de hoje? (opcional)</div>
+    </div>
+    <div class="section" style="padding-top:0;">
+      <div id="finish-photo-preview-wrap" class="hidden" style="margin-bottom:14px;">
+        <img id="finish-photo-preview" class="photo-preview" style="margin-bottom:8px;">
+        <button class="btn-secondary" id="btn-remove-photo" type="button" style="margin-top:0;">Remover foto</button>
+      </div>
+      <input type="file" accept="image/*" capture="environment" id="finish-photo-input" class="hidden">
+      <button class="btn-secondary" id="btn-pick-photo" type="button" style="margin-top:0;">📷 Escolher foto</button>
+      <button class="btn-primary" id="btn-finish-confirm" style="margin-top:22px;">✅ Concluir treino</button>
+    </div>
+  </div>
+
+  <div id="view-day-detail" class="view hidden">
+    <div class="back-row">
+      <button class="back-btn" id="back-day-detail">&#8592;</button>
+      <h2 style="margin:0;font-size:18px;" id="day-detail-title"></h2>
+    </div>
+    <div class="section">
+      <img id="day-detail-photo" class="photo-preview hidden" style="margin-bottom:16px;">
+      <div id="day-detail-content"></div>
+    </div>
+  </div>
+
   <div id="tab-bar" class="tab-bar hidden">
     <button class="tab-btn active" id="btn-tab-home" data-tab="view-home"><span class="icon">🏠</span><span>Início</span></button>
     <button class="tab-btn" id="btn-tab-history" data-tab="view-history"><span class="icon">📅</span><span>Histórico</span></button>
@@ -560,6 +591,8 @@
   let monthlyGoal = null;
   let weightGoalKg = null;
   let weightLogs = [];
+  let photosByDate = {};
+  let pendingPhotoFile = null;
   let state = { group:null, exercise:null, sets:[], date:null };
   let sessionDate = todayISO();
 
@@ -670,6 +703,74 @@
       else { weightLogs.push({ date:dateStr, weightKg:kg }); weightLogs.sort((a,b)=> a.date.localeCompare(b.date)); }
       return true;
     }catch(e){ console.error('Erro ao salvar peso', e); return false; }
+  }
+
+  async function loadWorkoutPhotos(){
+    try{
+      const { data, error } = await sb.from('workout_photos').select('date, storage_path');
+      if (error) throw error;
+      photosByDate = {};
+      (data || []).forEach(r => { photosByDate[r.date] = r.storage_path; });
+    }catch(e){ console.error('Erro ao carregar fotos', e); photosByDate = {}; }
+  }
+
+  function compressImage(file, maxDim, quality){
+    maxDim = maxDim || 1280;
+    quality = quality || 0.8;
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim){
+          if (width > height){ height = Math.round(height * (maxDim/width)); width = maxDim; }
+          else { width = Math.round(width * (maxDim/height)); height = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        canvas.toBlob(blob => {
+          URL.revokeObjectURL(url);
+          if (blob) resolve(blob); else reject(new Error('Falha ao processar imagem.'));
+        }, 'image/jpeg', quality);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Falha ao carregar imagem.')); };
+      img.src = url;
+    });
+  }
+
+  async function saveWorkoutPhoto(dateStr, file){
+    try{
+      const blob = await compressImage(file);
+      const path = `${currentUser.id}/${dateStr}.jpg`;
+      const { error: uploadError } = await sb.storage.from('workout-photos')
+        .upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
+      if (uploadError) throw uploadError;
+      const { error: dbError } = await sb.from('workout_photos')
+        .upsert({ user_id: currentUser.id, date: dateStr, storage_path: path }, { onConflict:'user_id,date' });
+      if (dbError) throw dbError;
+      photosByDate[dateStr] = path;
+      return true;
+    }catch(e){ console.error('Erro ao salvar foto', e); return false; }
+  }
+
+  function resetFinishPhotoState(){
+    pendingPhotoFile = null;
+    document.getElementById('finish-photo-input').value = '';
+    document.getElementById('finish-photo-preview-wrap').classList.add('hidden');
+    const btn = document.getElementById('btn-finish-confirm');
+    btn.disabled = false;
+    btn.textContent = '✅ Concluir treino';
+  }
+
+  async function getWorkoutPhotoUrl(dateStr){
+    const path = photosByDate[dateStr];
+    if (!path) return null;
+    try{
+      const { data, error } = await sb.storage.from('workout-photos').createSignedUrl(path, 3600);
+      if (error) throw error;
+      return data.signedUrl;
+    }catch(e){ console.error('Erro ao gerar link da foto', e); return null; }
   }
 
   async function saveUserName(name){
@@ -801,7 +902,7 @@
     showView('view-home');
   }
 
-  function renderDayRow(container, dayObj, streakDates){
+  function renderDayRow(container, dayObj, streakDates, clickable){
     const row = document.createElement('div');
     row.className = 'list-row';
     let dateLabel;
@@ -809,8 +910,13 @@
     else if (isYesterday(dayObj.date)) dateLabel = 'Ontem';
     else dateLabel = dayObj.date.split('-').reverse().join('/');
     const fire = streakDates.has(dayObj.date) ? '🔥 ' : '';
+    const photoBadge = photosByDate[dayObj.date] ? ' <span class="photo-badge">📷</span>' : '';
     const groupLabels = dayObj.groups.map(g => `${GROUP_EMOJI[g]} ${EXERCISES[g].label}`).join(', ');
-    row.innerHTML = `<div><div class="name">${fire}${dateLabel}</div><div class="sub">${groupLabels}</div></div><div class="value">${dayObj.count} exerc.</div>`;
+    row.innerHTML = `<div><div class="name">${fire}${dateLabel}${photoBadge}</div><div class="sub">${groupLabels}</div></div><div class="value">${dayObj.count} exerc.</div>`;
+    if (clickable){
+      row.style.cursor = 'pointer';
+      row.onclick = () => openDayDetail(dayObj.date);
+    }
     container.appendChild(row);
   }
 
@@ -868,7 +974,51 @@
       return;
     }
     const streakDates = getStreakDates();
-    days.forEach(d => renderDayRow(container, d, streakDates));
+    days.forEach(d => renderDayRow(container, d, streakDates, true));
+  }
+
+  async function openDayDetail(dateStr){
+    let dateLabel;
+    if (dateStr === todayISO()) dateLabel = 'Hoje';
+    else if (isYesterday(dateStr)) dateLabel = 'Ontem';
+    else dateLabel = dateStr.split('-').reverse().join('/');
+    document.getElementById('day-detail-title').textContent = dateLabel;
+
+    const dayEntries = workouts.filter(w => w.date === dateStr);
+    const groups = {};
+    dayEntries.forEach(w => {
+      if (!groups[w.group]) groups[w.group] = [];
+      groups[w.group].push(w);
+    });
+
+    const content = Object.entries(groups).map(([group, entries]) => {
+      const rowsHtml = entries.map(w => {
+        const setsText = w.sets.map(s => `${s.peso}kg x ${s.reps}`).join(', ');
+        const feeling = FEELINGS.find(f => f.id === w.feeling);
+        const feelingText = feeling ? feeling.label : '';
+        return `<div class="list-row">
+            <div class="exercise-icon">${EXERCISE_ICONS[w.exercise] || ''}</div>
+            <div style="flex:1;">
+              <div class="name">${w.exercise}${w.note ? ` <span style="color:var(--text-muted);font-weight:400;">— ${w.note}</span>` : ''}</div>
+              <div class="sub">${setsText}${feelingText ? ' · ' + feelingText : ''}</div>
+            </div>
+          </div>`;
+      }).join('');
+      return `<div class="section-title" style="margin-top:18px;">${GROUP_EMOJI[group]} ${EXERCISES[group].label}</div>${rowsHtml}`;
+    }).join('');
+
+    document.getElementById('day-detail-content').innerHTML = content || '<div class="empty-state">Nenhum treino nesse dia.</div>';
+
+    const photoImg = document.getElementById('day-detail-photo');
+    photoImg.classList.add('hidden');
+    photoImg.removeAttribute('src');
+    showView('view-day-detail');
+
+    const photoUrl = await getWorkoutPhotoUrl(dateStr);
+    if (photoUrl){
+      photoImg.src = photoUrl;
+      photoImg.classList.remove('hidden');
+    }
   }
 
   function renderMonthComparison(){
@@ -1413,7 +1563,7 @@
     if (window.location.search || window.location.hash){
       window.history.replaceState({}, document.title, window.location.pathname);
     }
-    await Promise.all([loadWorkouts(), loadProfile(), loadWeightLogs()]);
+    await Promise.all([loadWorkouts(), loadProfile(), loadWeightLogs(), loadWorkoutPhotos()]);
     if (!userName){
       showView('view-onboarding');
     }else{
@@ -1457,7 +1607,31 @@
     document.getElementById('btn-rest-adjust-minus').onclick = () => adjustRestDuration(-15);
     document.getElementById('btn-rest-adjust-plus').onclick = () => adjustRestDuration(15);
     document.getElementById('btn-add-another').onclick = () => { renderGroupView(); showView('view-group'); };
-    document.getElementById('btn-finish').onclick = goHome;
+    document.getElementById('btn-finish').onclick = () => { resetFinishPhotoState(); showView('view-finish'); };
+    document.getElementById('btn-pick-photo').onclick = () => document.getElementById('finish-photo-input').click();
+    document.getElementById('finish-photo-input').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      pendingPhotoFile = file;
+      document.getElementById('finish-photo-preview').src = URL.createObjectURL(file);
+      document.getElementById('finish-photo-preview-wrap').classList.remove('hidden');
+    });
+    document.getElementById('btn-remove-photo').onclick = () => {
+      pendingPhotoFile = null;
+      document.getElementById('finish-photo-input').value = '';
+      document.getElementById('finish-photo-preview-wrap').classList.add('hidden');
+    };
+    document.getElementById('btn-finish-confirm').onclick = async () => {
+      const btn = document.getElementById('btn-finish-confirm');
+      if (pendingPhotoFile){
+        btn.disabled = true;
+        btn.textContent = 'Salvando...';
+        const ok = await saveWorkoutPhoto(sessionDate, pendingPhotoFile);
+        if (!ok) alert('Não foi possível salvar a foto, mas seu treino já está salvo.');
+      }
+      goHome();
+    };
+    document.getElementById('back-day-detail').onclick = () => showView('view-history');
     document.getElementById('btn-reset').onclick = resetData;
     document.getElementById('btn-logout').onclick = handleLogout;
 
