@@ -168,6 +168,10 @@
   .auth-error{font-size:13px;margin:10px 0;padding:10px 12px;border-radius:10px;background:rgba(230,57,70,0.12);color:var(--accent);}
   .auth-error.success{background:rgba(76,175,80,0.12);color:var(--success);}
   .auth-note{font-size:12px;color:var(--text-muted);text-align:center;margin-top:16px;}
+  .auth-divider{display:flex;align-items:center;gap:10px;margin:18px 0;color:var(--text-muted);font-size:12px;}
+  .auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:var(--border);}
+  .btn-google{display:flex;align-items:center;justify-content:center;gap:10px;}
+  .btn-google svg{width:18px;height:18px;flex-shrink:0;}
 </style>
 </head>
 <body>
@@ -190,6 +194,16 @@
       <input type="password" id="auth-password-input" placeholder="Sua senha" autocomplete="current-password">
       <div id="auth-error" class="auth-error hidden"></div>
       <button class="btn-primary" id="btn-auth-submit" style="margin-top:16px;">Entrar</button>
+      <div class="auth-divider"><span>ou</span></div>
+      <button class="btn-secondary btn-google" id="btn-google-login" type="button">
+        <svg viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+          <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/>
+          <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
+          <path d="M3.964 10.706A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.038l3.007-2.332z" fill="#FBBC05"/>
+          <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.962L3.964 7.294C4.672 5.167 6.656 3.58 9 3.58z" fill="#EA4335"/>
+        </svg>
+        Entrar com Google
+      </button>
       <div class="auth-note">Seus treinos ficam salvos com segurança na nuvem.</div>
     </div>
   </div>
@@ -1223,6 +1237,20 @@
     }
   }
 
+  async function handleGoogleLogin(){
+    hideAuthError();
+    const btn = document.getElementById('btn-google-login');
+    btn.disabled = true;
+    try{
+      const redirectTo = window.location.origin + window.location.pathname;
+      const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } });
+      if (error) throw error;
+    }catch(e){
+      showAuthError(translateAuthError(e.message));
+      btn.disabled = false;
+    }
+  }
+
   async function handleLogout(){
     await sb.auth.signOut();
     currentUser = null;
@@ -1239,6 +1267,9 @@
   async function onAuthenticated(){
     const { data:{ user } } = await sb.auth.getUser();
     currentUser = user;
+    if (window.location.search || window.location.hash){
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
     await Promise.all([loadWorkouts(), loadProfile()]);
     if (!userName){
       showView('view-onboarding');
@@ -1256,6 +1287,7 @@
       btn.onclick = () => setAuthMode(btn.dataset.mode);
     });
     document.getElementById('btn-auth-submit').onclick = handleAuthSubmit;
+    document.getElementById('btn-google-login').onclick = handleGoogleLogin;
     [document.getElementById('auth-email-input'), document.getElementById('auth-password-input')].forEach(inp=>{
       inp.addEventListener('keydown', e=>{ if (e.key === 'Enter') handleAuthSubmit(); });
     });
@@ -1307,6 +1339,8 @@
       if (event === 'SIGNED_OUT'){
         currentUser = null;
         showView('view-login');
+      }else if (event === 'SIGNED_IN' && !currentUser){
+        onAuthenticated();
       }
     });
 

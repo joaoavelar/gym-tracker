@@ -29,13 +29,31 @@ Cole a URL e a chave copiadas no passo anterior.
 
 Por padrão o Supabase exige confirmação de e-mail antes do primeiro login. Para testar rapidamente sem configurar envio de e-mail, você pode desativar isso em **Authentication > Providers > Email > Confirm email** (desmarque a opção) — não recomendado para produção.
 
-### 4. Abrir o app
+### 4. (Opcional) Login com Google
+
+O botão "Entrar com Google" já está no app, mas só funciona depois de configurar um provedor OAuth. O login com Google exige uma URL `http(s)`, então só funciona quando o app é acessado pelo link publicado (GitHub Pages), não abrindo o `index.html` local.
+
+**No Google Cloud Console** ([console.cloud.google.com](https://console.cloud.google.com)):
+
+1. Crie um projeto (ou use um existente).
+2. **APIs e Serviços → Tela de consentimento OAuth**: tipo "Externo", preencha nome do app e e-mail de suporte.
+3. **APIs e Serviços → Credenciais → Criar credenciais → ID do cliente OAuth**, tipo "Aplicativo da Web".
+4. Em **Origens JavaScript autorizadas**, adicione a URL do seu projeto Supabase, por exemplo `https://SEU_PROJETO.supabase.co`.
+5. Em **URIs de redirecionamento autorizados**, adicione `https://SEU_PROJETO.supabase.co/auth/v1/callback`.
+6. Copie o **Client ID** e o **Client Secret** gerados.
+
+**No Supabase:**
+
+1. **Authentication → Providers → Google**: habilite, cole o Client ID e o Client Secret, salve.
+2. **Authentication → URL Configuration → Redirect URLs**: adicione a URL onde o app está publicado (ex: `https://SEU_USUARIO.github.io/gym-tracker/`), senão o Supabase recusa o redirecionamento de volta ao app.
+
+### 5. Abrir o app
 
 Abra `index.html` diretamente no navegador, ou publique a pasta em qualquer serviço de hospedagem estática.
 
 ## Funcionalidades
 
-- Login e cadastro com e-mail e senha (Supabase Auth), dados sincronizados entre dispositivos
+- Login e cadastro com e-mail e senha, e login com Google (Supabase Auth), dados sincronizados entre dispositivos
 - Registro rápido de treino: grupo muscular, exercício, séries (peso e repetições), nota de variação, sensação após o treino
 - Base de 23 exercícios pré-carregados em 6 grupos musculares, cada um com ícone SVG
 - Sugestões de variação por exercício em chips
@@ -44,6 +62,7 @@ Abra `index.html` diretamente no navegador, ou publique a pasta em qualquer serv
 - Sequência de dias treinados (streak) 🔥
 - Metas semanais configuráveis com acompanhamento de progresso
 - Bloqueio de registro de treino em datas futuras
+- Cronômetro de descanso ao vivo durante o registro do treino (presets, ajuste, som e vibração)
 
 ## Stack
 
@@ -51,6 +70,5 @@ HTML, CSS e JavaScript puro em um único arquivo (`index.html`), sem framework e
 
 ## Pendências para a próxima fase
 
-- Cronômetro de descanso ao vivo durante o treino
 - Bloqueio de outros apps durante o treino (restrições fortes no iOS)
 - IA que analisa o histórico de treinos e sugere exercícios, variações e métodos como drop set
