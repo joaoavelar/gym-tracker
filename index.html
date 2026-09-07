@@ -106,6 +106,21 @@
   .feeling-btn{padding:12px 6px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;cursor:pointer;text-align:center;}
   .feeling-btn.selected{border-color:var(--accent);background:rgba(230,57,70,0.15);}
 
+  .rest-timer-display{position:relative;width:140px;height:140px;margin:0 auto 14px;}
+  .rest-ring{width:100%;height:100%;transform:rotate(-90deg);}
+  .rest-ring-bg{fill:none;stroke:var(--surface-alt);stroke-width:8;}
+  .rest-ring-progress{fill:none;stroke:var(--accent);stroke-width:8;stroke-linecap:round;transition:stroke-dashoffset 0.25s linear,stroke 0.3s;}
+  .rest-timer-time{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-size:28px;font-weight:800;}
+  .rest-presets{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:14px;}
+  .rest-preset-chip{padding:8px 14px;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);font-size:13px;cursor:pointer;}
+  .rest-preset-chip.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .rest-controls{display:flex;gap:8px;align-items:center;}
+  .rest-controls .btn-secondary{margin-top:0;width:auto;padding:14px 12px;flex:0 0 auto;}
+  .rest-controls .btn-primary{padding:14px;}
+  @keyframes rest-pulse{0%,100%{opacity:1;}50%{opacity:0.35;}}
+  #rest-timer-card.rest-done .rest-ring-progress{stroke:var(--success);}
+  #rest-timer-card.rest-done .rest-timer-time{animation:rest-pulse 0.9s ease-in-out 3;}
+
   .goal-options{display:flex;gap:8px;flex-wrap:wrap;}
   .goal-chip{padding:10px 16px;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-weight:600;font-size:14px;}
   .goal-chip.selected{background:var(--accent);border-color:var(--accent);color:#fff;}
@@ -297,6 +312,29 @@
       <button class="btn-secondary" id="btn-repeat-set">Repetir última série</button>
       <button class="btn-secondary" id="btn-add-set">+ Adicionar série</button>
 
+      <div class="section-title" style="margin-top:22px;">⏱️ Descanso</div>
+      <div class="card" id="rest-timer-card">
+        <div class="rest-timer-display">
+          <svg viewBox="0 0 120 120" class="rest-ring">
+            <circle cx="60" cy="60" r="52" class="rest-ring-bg"/>
+            <circle cx="60" cy="60" r="52" class="rest-ring-progress" id="rest-ring-progress"/>
+          </svg>
+          <div class="rest-timer-time" id="rest-timer-time">01:30</div>
+        </div>
+        <div class="rest-presets" id="rest-presets">
+          <button class="rest-preset-chip" type="button" data-secs="30">30s</button>
+          <button class="rest-preset-chip" type="button" data-secs="60">60s</button>
+          <button class="rest-preset-chip active" type="button" data-secs="90">90s</button>
+          <button class="rest-preset-chip" type="button" data-secs="120">2min</button>
+          <button class="rest-preset-chip" type="button" data-secs="180">3min</button>
+        </div>
+        <div class="rest-controls">
+          <button class="btn-secondary" id="btn-rest-adjust-minus" type="button">−15s</button>
+          <button class="btn-primary" id="btn-rest-toggle" type="button" style="flex:1;">▶️ Iniciar descanso</button>
+          <button class="btn-secondary" id="btn-rest-adjust-plus" type="button">+15s</button>
+        </div>
+      </div>
+
       <div class="section-title" style="margin-top:22px;">🙂 Como você se sentiu?</div>
       <div class="feeling-grid" id="feeling-container"></div>
 
@@ -409,6 +447,14 @@
   let state = { group:null, exercise:null, sets:[], date:null };
   let sessionDate = todayISO();
 
+  const REST_RING_CIRCUMFERENCE = 2 * Math.PI * 52;
+  let restDuration = parseInt(localStorage.getItem('gymtracker:restDuration') || '90', 10) || 90;
+  let restRemaining = restDuration;
+  let restRunning = false;
+  let restEndTime = null;
+  let restInterval = null;
+  let audioCtx = null;
+
   function todayISO(){ return toISO(new Date()); }
 
   function toISO(d){
@@ -476,6 +522,7 @@
   }
 
   function showView(id){
+    if (id !== 'view-log') stopRestTimer(false);
     document.querySelectorAll('.view').forEach(v=>v.classList.add('hidden'));
     document.getElementById(id).classList.remove('hidden');
     const topLevel = ['view-home','view-history','view-goals'];
@@ -844,6 +891,131 @@
     btn.classList.add('selected');
   }
 
+  function formatRestTime(totalSeconds){
+    const m = Math.floor(totalSeconds/60);
+    const s = totalSeconds%60;
+    return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  }
+
+  function getAudioContext(){
+    if (!audioCtx){
+      try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+      catch(e){ audioCtx = null; }
+    }
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+
+  function playRestBeep(){
+    const ctx = getAudioContext();
+    if (ctx){
+      try{
+        [0, 0.18, 0.36].forEach(t=>{
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.value = 880;
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          const startAt = ctx.currentTime + t;
+          gain.gain.setValueAtTime(0.0001, startAt);
+          gain.gain.exponentialRampToValueAtTime(0.35, startAt + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.15);
+          osc.start(startAt);
+          osc.stop(startAt + 0.16);
+        });
+      }catch(e){ /* som indisponível */ }
+    }
+    if (navigator.vibrate) navigator.vibrate([200,100,200]);
+  }
+
+  function renderRestTimer(){
+    document.getElementById('rest-timer-time').textContent = formatRestTime(Math.max(0, restRemaining));
+    const fraction = restDuration > 0 ? Math.min(1, Math.max(0, restRemaining / restDuration)) : 0;
+    document.getElementById('rest-ring-progress').style.strokeDashoffset = String(REST_RING_CIRCUMFERENCE * (1 - fraction));
+    const toggleBtn = document.getElementById('btn-rest-toggle');
+    if (restRunning) toggleBtn.textContent = '⏸️ Pausar';
+    else if (restRemaining > 0 && restRemaining < restDuration) toggleBtn.textContent = '▶️ Continuar';
+    else toggleBtn.textContent = '▶️ Iniciar descanso';
+  }
+
+  function initRestTimer(){
+    document.getElementById('rest-ring-progress').style.strokeDasharray = String(REST_RING_CIRCUMFERENCE);
+    document.querySelectorAll('.rest-preset-chip').forEach(c=> c.classList.toggle('active', parseInt(c.dataset.secs,10)===restDuration));
+    renderRestTimer();
+  }
+
+  function setRestDuration(secs){
+    restDuration = secs;
+    restRemaining = secs;
+    restRunning = false;
+    restEndTime = null;
+    clearInterval(restInterval);
+    document.getElementById('rest-timer-card').classList.remove('rest-done');
+    localStorage.setItem('gymtracker:restDuration', String(restDuration));
+    document.querySelectorAll('.rest-preset-chip').forEach(c=> c.classList.toggle('active', parseInt(c.dataset.secs,10)===restDuration));
+    renderRestTimer();
+  }
+
+  function adjustRestDuration(deltaSecs){
+    restDuration = Math.max(15, restDuration + deltaSecs);
+    localStorage.setItem('gymtracker:restDuration', String(restDuration));
+    document.querySelectorAll('.rest-preset-chip').forEach(c=> c.classList.toggle('active', parseInt(c.dataset.secs,10)===restDuration));
+    if (restRunning){
+      restEndTime += deltaSecs*1000;
+      restRemaining = Math.max(0, Math.ceil((restEndTime - Date.now())/1000));
+    }else{
+      restRemaining = restDuration;
+    }
+    renderRestTimer();
+  }
+
+  function tickRest(){
+    if (!restRunning) return;
+    const msLeft = restEndTime - Date.now();
+    restRemaining = Math.max(0, Math.ceil(msLeft/1000));
+    renderRestTimer();
+    if (msLeft <= 0){
+      stopRestTimer(true);
+      document.getElementById('rest-timer-card').classList.add('rest-done');
+      playRestBeep();
+    }
+  }
+
+  function startRestTimer(){
+    if (restRemaining <= 0) restRemaining = restDuration;
+    getAudioContext();
+    restEndTime = Date.now() + restRemaining*1000;
+    restRunning = true;
+    document.getElementById('rest-timer-card').classList.remove('rest-done');
+    clearInterval(restInterval);
+    restInterval = setInterval(tickRest, 250);
+    renderRestTimer();
+  }
+
+  function pauseRestTimer(){
+    if (!restRunning) return;
+    restRunning = false;
+    clearInterval(restInterval);
+    restRemaining = Math.max(0, Math.ceil((restEndTime - Date.now())/1000));
+    renderRestTimer();
+  }
+
+  function stopRestTimer(finished){
+    restRunning = false;
+    clearInterval(restInterval);
+    if (!finished){
+      restRemaining = restDuration;
+      document.getElementById('rest-timer-card').classList.remove('rest-done');
+    }
+    renderRestTimer();
+  }
+
+  function toggleRestTimer(){
+    if (restRunning) pauseRestTimer();
+    else startRestTimer();
+  }
+
   function openLogExercise(exercise){
     state.exercise = exercise;
     state.sets = [];
@@ -879,6 +1051,7 @@
     dateInput.value = state.date;
     document.querySelectorAll('.feeling-btn').forEach(b=>b.classList.remove('selected'));
 
+    stopRestTimer(false);
     renderSets();
     showView('view-log');
   }
@@ -1077,6 +1250,7 @@
 
   window.addEventListener('DOMContentLoaded', async () => {
     renderFeelingButtons();
+    initRestTimer();
 
     document.querySelectorAll('#auth-toggle .segment-btn').forEach(btn=>{
       btn.onclick = () => setAuthMode(btn.dataset.mode);
@@ -1101,6 +1275,12 @@
     document.getElementById('btn-add-set').onclick = addSet;
     document.getElementById('btn-repeat-set').onclick = repeatLastSet;
     document.getElementById('btn-save-workout').onclick = saveWorkout;
+    document.querySelectorAll('.rest-preset-chip').forEach(chip=>{
+      chip.onclick = () => setRestDuration(parseInt(chip.dataset.secs, 10));
+    });
+    document.getElementById('btn-rest-toggle').onclick = toggleRestTimer;
+    document.getElementById('btn-rest-adjust-minus').onclick = () => adjustRestDuration(-15);
+    document.getElementById('btn-rest-adjust-plus').onclick = () => adjustRestDuration(15);
     document.getElementById('btn-add-another').onclick = () => { renderGroupView(); showView('view-group'); };
     document.getElementById('btn-finish').onclick = goHome;
     document.getElementById('btn-reset').onclick = resetData;
