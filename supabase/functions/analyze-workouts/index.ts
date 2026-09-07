@@ -36,8 +36,8 @@ Gere de 3 a 6 sugestões, cobrindo os tipos que fizerem sentido para os dados (n
 
 - "grupo": um grupo muscular sendo negligenciado (muitos dias sem treinar comparado aos outros) que vale treinar em breve.
 - "exercicio": um exercício novo (que não está na lista de exercícios já feitos) que complementaria a rotina atual.
-- "variacao": uma variação de um exercício que o usuário já faz, mas ainda não tentou (compare com "variationsTried" desse exercício), para quebrar platô.
-- "carga": análise de progressão de peso em um exercício específico, usando o histórico de sessões recentes (campo "recentSessions"). Só sugira AUMENTAR carga se houver progressão consistente e o usuário estiver treinando com regularidade (poucos dias parado). Se "daysSinceLastWorkout" for alto (ex: mais de 10-14 dias sem treinar), NÃO sugira aumento de carga em nenhum exercício - ao contrário, sugira REDUZIR o peso na volta (ex: 10-20% a menos) para evitar lesão por perda de condicionamento, e explique isso claramente na descrição.
+- "variacao": uma variação de um exercício que o usuário já faz, mas ainda não tentou (compare com "variationsTried" desse exercício), para quebrar platô. Cada item de "recentSessions" tem o campo "note" com a variação usada naquela sessão específica (ex: "barra reta", "pegada supinada") - use isso para ver se o usuário sempre repete a mesma variação (sugira trocar) ou se uma troca recente de variação coincidiu com queda de carga (pode explicar na descrição).
+- "carga": análise de progressão de peso em um exercício específico, usando o histórico de sessões recentes (campo "recentSessions", com peso, reps e a nota/variação de cada sessão). Só sugira AUMENTAR carga se houver progressão consistente e o usuário estiver treinando com regularidade (poucos dias parado). Se "daysSinceLastWorkout" for alto (ex: mais de 10-14 dias sem treinar), NÃO sugira aumento de carga em nenhum exercício - ao contrário, sugira REDUZIR o peso na volta (ex: 10-20% a menos) para evitar lesão por perda de condicionamento, e explique isso claramente na descrição.
 - "tecnica": técnica de intensificação (drop set, rest-pause, bi-set, série negativa, redução do tempo de descanso) para um exercício específico. Use "restPreferenceSeconds" como contexto: se o descanso preferido for longo (ex: acima de 90s) e o treino já estiver consistente, pode sugerir encurtar o descanso ou usar uma técnica de intensidade para tornar o treino mais intenso.
 
 Regra de segurança acima de tudo: nunca sugira aumento de carga para quem está há muitos dias sem treinar. Priorize sempre evitar lesão em vez de maximizar performance.
@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
 
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("weekly_goal, ai_suggestions_at")
+      .select("weekly_goal, monthly_goal, ai_suggestions_at")
       .eq("id", user.id)
       .maybeSingle();
     if (profileError) throw profileError;
@@ -112,7 +112,12 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Registre pelo menos 3 treinos para receber sugestões." });
     }
 
-    const summary = summarizeWorkouts(workouts, profile?.weekly_goal ?? null, restPreferenceSeconds);
+    const summary = summarizeWorkouts(
+      workouts,
+      profile?.weekly_goal ?? null,
+      profile?.monthly_goal ?? null,
+      restPreferenceSeconds,
+    );
     const suggestion = await callClaude(summary);
 
     const { error: updateError } = await supabase
@@ -156,13 +161,14 @@ const MAX_RECENT_SESSIONS = 6;
 function summarizeWorkouts(
   workouts: WorkoutRow[],
   weeklyGoal: number | null,
+  monthlyGoal: number | null,
   restPreferenceSeconds: number | null,
 ) {
   type ExerciseAgg = {
     group: string;
     sessions: number;
     notes: Set<string>;
-    recentSessions: { date: string; topWeight: number; reps: number }[];
+    recentSessions: { date: string; topWeight: number; reps: number; note: string | null }[];
     feelings: string[];
   };
 
@@ -187,7 +193,7 @@ function summarizeWorkouts(
     const sets = w.sets || [];
     if (sets.length > 0) {
       const top = sets.reduce((max, s) => (s.peso > max.peso ? s : max), sets[0]);
-      e.recentSessions.push({ date: w.date, topWeight: top.peso, reps: top.reps });
+      e.recentSessions.push({ date: w.date, topWeight: top.peso, reps: top.reps, note: w.note || null });
     }
   }
 
@@ -216,6 +222,7 @@ function summarizeWorkouts(
     totalWorkoutDays: daySet.size,
     daysSinceLastWorkout: lastWorkoutDate ? daysSince(lastWorkoutDate) : null,
     weeklyGoal,
+    monthlyGoal,
     restPreferenceSeconds,
     exercises,
     muscleGroupGaps,

@@ -82,6 +82,7 @@
 
   .back-row{padding:22px 20px 0;display:flex;align-items:center;gap:12px;}
   .back-btn{background:none;border:none;color:var(--text);font-size:22px;cursor:pointer;padding:0;line-height:1;}
+  .search-btn{background:none;border:1px solid var(--border);border-radius:10px;width:38px;height:38px;font-size:16px;color:var(--text);cursor:pointer;flex-shrink:0;}
 
   .session-banner{margin:14px 20px 0;padding:10px 14px;background:var(--surface-alt);border-radius:10px;font-size:13px;color:var(--text-muted);}
 
@@ -184,6 +185,15 @@
   .suggestion-tag.tecnica{background:rgba(255,193,7,0.15);color:#ffc107;}
   .suggestion-title{font-weight:700;font-size:15px;margin-bottom:2px;}
   .suggestion-desc{font-size:13px;color:var(--text-muted);}
+
+  .glossary-topic{margin-bottom:12px;}
+  .glossary-topic:last-child{margin-bottom:0;}
+  .glossary-topic .g-title{font-weight:700;font-size:14px;margin-bottom:2px;}
+  .glossary-topic .g-desc{font-size:13px;color:var(--text-muted);}
+
+  .weight-input-row{display:flex;gap:8px;align-items:flex-end;}
+  .weight-input-row > div{flex:1;}
+  .weight-input-row .btn-primary{width:auto;padding:12px 18px;margin-top:0;}
 </style>
 </head>
 <body>
@@ -286,12 +296,41 @@
 
   <div id="view-goals" class="view top-level hidden">
     <header class="top"><h1>🎯 Metas</h1></header>
-    <div class="section">
+    <div class="segmented" id="goals-toggle">
+      <button class="segment-btn active" data-mode="semanal" type="button">Semanal</button>
+      <button class="segment-btn" data-mode="mensal" type="button">Mensal</button>
+      <button class="segment-btn" data-mode="peso" type="button">Peso</button>
+    </div>
+
+    <div id="goals-panel-semanal" class="section">
       <div class="section-title">Meta semanal</div>
       <div class="goal-options" id="goal-options"></div>
+      <div class="card" id="week-progress-card" style="margin-top:16px;"></div>
     </div>
-    <div class="section">
-      <div class="card" id="week-progress-card"></div>
+
+    <div id="goals-panel-mensal" class="section hidden">
+      <div class="section-title">Meta mensal</div>
+      <div class="goal-options" id="monthly-goal-options"></div>
+      <div class="card" id="month-progress-card" style="margin-top:16px;"></div>
+    </div>
+
+    <div id="goals-panel-peso" class="section hidden">
+      <div class="section-title">Peso corporal</div>
+      <div class="card">
+        <label class="field-label">Registrar peso de hoje</label>
+        <div class="weight-input-row">
+          <div><input type="number" inputmode="decimal" step="0.1" id="weight-input" placeholder="kg"></div>
+          <button class="btn-primary" id="btn-save-weight" type="button">Salvar</button>
+        </div>
+      </div>
+      <div class="card">
+        <label class="field-label">Meta de peso (kg)</label>
+        <div class="weight-input-row">
+          <div><input type="number" inputmode="decimal" step="0.1" id="weight-goal-input" placeholder="kg"></div>
+          <button class="btn-primary" id="btn-save-weight-goal" type="button">Salvar</button>
+        </div>
+      </div>
+      <div class="card" id="weight-progress-card"></div>
     </div>
   </div>
 
@@ -303,6 +342,39 @@
       </div>
       <button class="btn-primary" id="btn-analyze-workouts">🔍 Analisar meus treinos</button>
       <div class="label" id="ai-suggestions-meta" style="text-align:center;margin-top:10px;"></div>
+      <button class="btn-secondary" id="btn-toggle-glossary" type="button">❓ O que a IA pode sugerir</button>
+      <div class="card hidden" id="glossary-card" style="margin-top:12px;">
+        <div class="glossary-topic">
+          <div class="g-title">💪 Exemplos de sugestões</div>
+          <div class="g-desc">
+            "Faz 8 dias que você não treina perna" · "Tente a variação pegada aberta na puxada" · "Sua carga no supino vem subindo, pode aumentar um pouco" · "Você ficou 15 dias sem treinar, comece mais leve"
+          </div>
+        </div>
+        <div class="glossary-topic">
+          <div class="g-title">📈 Progressão de carga</div>
+          <div class="g-desc">Aumentar o peso aos poucos, treino após treino, pra continuar evoluindo.</div>
+        </div>
+        <div class="glossary-topic">
+          <div class="g-title">🔁 Periodização</div>
+          <div class="g-desc">Alternar fases mais leves e mais pesadas ao longo das semanas, pra evitar estagnar ou se lesionar.</div>
+        </div>
+        <div class="glossary-topic">
+          <div class="g-title">🔥 Drop set</div>
+          <div class="g-desc">Termina a série, reduz o peso na hora e continua sem descansar.</div>
+        </div>
+        <div class="glossary-topic">
+          <div class="g-title">⏸️ Rest-pause</div>
+          <div class="g-desc">Para por poucos segundos no meio da série e continua com o mesmo peso.</div>
+        </div>
+        <div class="glossary-topic">
+          <div class="g-title">🔗 Bi-set</div>
+          <div class="g-desc">Dois exercícios seguidos, sem descanso entre eles.</div>
+        </div>
+        <div class="glossary-topic">
+          <div class="g-title">🐢 Série negativa</div>
+          <div class="g-desc">Foca na descida do movimento, bem devagar.</div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -332,10 +404,11 @@
     <div class="back-row">
       <button class="back-btn" id="back-log">&#8592;</button>
       <div class="log-icon" id="log-icon"></div>
-      <div>
+      <div style="flex:1;">
         <h2 style="margin:0;font-size:18px;" id="log-exercise-name"></h2>
         <div class="date" id="log-group-name" style="font-size:13px;"></div>
       </div>
+      <button class="search-btn" id="btn-search-exercise" type="button" title="Ver fotos do exercício">🔍</button>
     </div>
     <div class="section">
       <div class="card hidden" id="last-time-card"></div>
@@ -484,6 +557,9 @@
   let authMode = 'login';
   let aiSuggestions = null;
   let aiSuggestionsAt = null;
+  let monthlyGoal = null;
+  let weightGoalKg = null;
+  let weightLogs = [];
   let state = { group:null, exercise:null, sets:[], date:null };
   let sessionDate = todayISO();
 
@@ -544,9 +620,22 @@
       if (error) throw error;
       userName = data && data.name ? data.name : null;
       weeklyGoal = data && data.weekly_goal != null ? data.weekly_goal : null;
+      monthlyGoal = data && data.monthly_goal != null ? data.monthly_goal : null;
+      weightGoalKg = data && data.weight_goal_kg != null ? data.weight_goal_kg : null;
       aiSuggestions = data && data.ai_suggestions ? data.ai_suggestions : null;
       aiSuggestionsAt = data && data.ai_suggestions_at ? data.ai_suggestions_at : null;
-    }catch(e){ console.error('Erro ao carregar perfil', e); userName = null; weeklyGoal = null; aiSuggestions = null; aiSuggestionsAt = null; }
+    }catch(e){
+      console.error('Erro ao carregar perfil', e);
+      userName = null; weeklyGoal = null; monthlyGoal = null; weightGoalKg = null; aiSuggestions = null; aiSuggestionsAt = null;
+    }
+  }
+
+  async function loadWeightLogs(){
+    try{
+      const { data, error } = await sb.from('body_weight_logs').select('date, weight_kg').order('date', { ascending:true });
+      if (error) throw error;
+      weightLogs = (data || []).map(r => ({ date:r.date, weightKg:r.weight_kg }));
+    }catch(e){ console.error('Erro ao carregar peso', e); weightLogs = []; }
   }
 
   async function saveGoal(n){
@@ -555,6 +644,32 @@
     catch(e){ console.error('Erro ao salvar meta', e); }
     renderGoals();
     renderHome();
+  }
+
+  async function saveMonthlyGoal(n){
+    monthlyGoal = n;
+    try{ await sb.from('profiles').upsert({ id: currentUser.id, monthly_goal:n }); }
+    catch(e){ console.error('Erro ao salvar meta mensal', e); }
+    renderGoals();
+  }
+
+  async function saveWeightGoal(kg){
+    weightGoalKg = kg;
+    try{ await sb.from('profiles').upsert({ id: currentUser.id, weight_goal_kg:kg }); }
+    catch(e){ console.error('Erro ao salvar meta de peso', e); }
+    renderGoals();
+  }
+
+  async function saveWeightLog(dateStr, kg){
+    try{
+      const { error } = await sb.from('body_weight_logs')
+        .upsert({ user_id: currentUser.id, date: dateStr, weight_kg: kg }, { onConflict:'user_id,date' });
+      if (error) throw error;
+      const existing = weightLogs.find(w => w.date === dateStr);
+      if (existing) existing.weightKg = kg;
+      else { weightLogs.push({ date:dateStr, weightKg:kg }); weightLogs.sort((a,b)=> a.date.localeCompare(b.date)); }
+      return true;
+    }catch(e){ console.error('Erro ao salvar peso', e); return false; }
   }
 
   async function saveUserName(name){
@@ -1298,7 +1413,7 @@
     if (window.location.search || window.location.hash){
       window.history.replaceState({}, document.title, window.location.pathname);
     }
-    await Promise.all([loadWorkouts(), loadProfile()]);
+    await Promise.all([loadWorkouts(), loadProfile(), loadWeightLogs()]);
     if (!userName){
       showView('view-onboarding');
     }else{
@@ -1353,10 +1468,33 @@
       renderHistoryToggleState('days');
       showView('view-history');
     };
-    document.getElementById('btn-tab-goals').onclick = () => { renderGoals(); showView('view-goals'); };
-    document.getElementById('week-pill').onclick = () => { renderGoals(); showView('view-goals'); };
+    document.getElementById('btn-tab-goals').onclick = () => { renderGoals(); renderGoalsToggleState('semanal'); showView('view-goals'); };
+    document.getElementById('week-pill').onclick = () => { renderGoals(); renderGoalsToggleState('semanal'); showView('view-goals'); };
     document.getElementById('btn-tab-suggestions').onclick = () => { renderSuggestionsView(); showView('view-suggestions'); };
     document.getElementById('btn-analyze-workouts').onclick = analyzeWorkouts;
+    document.getElementById('btn-toggle-glossary').onclick = () => {
+      document.getElementById('glossary-card').classList.toggle('hidden');
+    };
+    document.getElementById('btn-search-exercise').onclick = () => {
+      const query = encodeURIComponent(`${state.exercise} execução exercício academia`);
+      window.open(`https://www.google.com/search?tbm=isch&q=${query}`, '_blank', 'noopener');
+    };
+
+    document.querySelectorAll('#goals-toggle .segment-btn').forEach(btn=>{
+      btn.onclick = () => renderGoalsToggleState(btn.dataset.mode);
+    });
+    document.getElementById('btn-save-weight').onclick = async () => {
+      const val = parseFloat(document.getElementById('weight-input').value);
+      if (isNaN(val) || val <= 0){ alert('Digite um peso válido.'); return; }
+      const ok = await saveWeightLog(todayISO(), val);
+      if (ok) renderWeightPanel();
+      else alert('Não foi possível salvar o peso. Tente novamente.');
+    };
+    document.getElementById('btn-save-weight-goal').onclick = async () => {
+      const val = parseFloat(document.getElementById('weight-goal-input').value);
+      if (isNaN(val) || val <= 0){ alert('Digite uma meta de peso válida.'); return; }
+      await saveWeightGoal(val);
+    };
 
     document.querySelectorAll('#history-toggle .segment-btn').forEach(btn=>{
       btn.onclick = () => renderHistoryToggleState(btn.dataset.mode);
@@ -1474,6 +1612,12 @@
   }
 
   function renderGoals(){
+    renderWeeklyGoalPanel();
+    renderMonthlyGoalPanel();
+    renderWeightPanel();
+  }
+
+  function renderWeeklyGoalPanel(){
     const optionsContainer = document.getElementById('goal-options');
     optionsContainer.innerHTML = '';
     [2,3,4,5,6].forEach(n=>{
@@ -1510,6 +1654,83 @@
     }
     dotsHtml += '</div>';
     card.innerHTML = `<div class="value-big">${trained} de ${weeklyGoal} dias essa semana</div>${dotsHtml}<div class="label" style="margin-top:10px;">${message}</div>`;
+  }
+
+  function renderMonthlyGoalPanel(){
+    const optionsContainer = document.getElementById('monthly-goal-options');
+    optionsContainer.innerHTML = '';
+    [8,10,12,16,20].forEach(n=>{
+      const btn = document.createElement('button');
+      btn.className = 'goal-chip' + (monthlyGoal===n ? ' selected' : '');
+      btn.textContent = `${n}x por mês`;
+      btn.onclick = () => saveMonthlyGoal(n);
+      optionsContainer.appendChild(btn);
+    });
+
+    const trained = trainingDaysCountForMonth(monthKey(todayISO()));
+    const card = document.getElementById('month-progress-card');
+    if (!monthlyGoal){
+      card.innerHTML = '<div class="label">Escolha uma meta acima para acompanhar seu mês.</div>';
+      return;
+    }
+    let message;
+    if (trained >= monthlyGoal){
+      message = 'Meta batida esse mês! 🎉';
+    }else{
+      const restantes = monthlyGoal - trained;
+      message = `Faltam ${restantes} treino${restantes>1?'s':''} esse mês 💪`;
+    }
+    card.innerHTML = `<div class="value-big">${trained} de ${monthlyGoal} dias esse mês</div><div class="label" style="margin-top:10px;">${message}</div>`;
+  }
+
+  function renderWeightChart(){
+    const points = weightLogs.slice(-10);
+    const values = points.map(p=>p.weightKg);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const range = (max - min) || 1;
+    const w = 280, h = 110, padX = 12, padY = 14;
+    const stepX = points.length > 1 ? (w - padX*2) / (points.length-1) : 0;
+    const coords = points.map((p,i)=>{
+      const x = padX + stepX*i;
+      const y = h - padY - ((p.weightKg - min)/range) * (h - padY*2);
+      return { x, y };
+    });
+    const pathD = coords.map((c,i)=> (i===0?'M':'L') + c.x.toFixed(1) + ' ' + c.y.toFixed(1)).join(' ');
+    const dots = coords.map(c=> `<circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="3.2" fill="#e63946"/>`).join('');
+    return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" style="margin-top:14px;">
+        <path d="${pathD}" fill="none" stroke="#e63946" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        ${dots}
+      </svg>`;
+  }
+
+  function renderWeightPanel(){
+    const lastLog = weightLogs[weightLogs.length - 1];
+    document.getElementById('weight-input').value = lastLog ? lastLog.weightKg : '';
+    document.getElementById('weight-goal-input').value = weightGoalKg != null ? weightGoalKg : '';
+
+    const card = document.getElementById('weight-progress-card');
+    if (weightLogs.length === 0){
+      card.innerHTML = '<div class="empty-state">Registre seu peso para acompanhar a evolução aqui.</div>';
+      return;
+    }
+    const current = weightLogs[weightLogs.length - 1].weightKg;
+    let goalHtml = '';
+    if (weightGoalKg != null){
+      const diff = Math.round((current - weightGoalKg) * 10) / 10;
+      if (Math.abs(diff) < 0.1) goalHtml = '<div class="label" style="margin-top:8px;">Meta batida! 🎉</div>';
+      else if (diff > 0) goalHtml = `<div class="label" style="margin-top:8px;">Faltam ${diff}kg para perder e bater a meta</div>`;
+      else goalHtml = `<div class="label" style="margin-top:8px;">Faltam ${Math.abs(diff)}kg para ganhar e bater a meta</div>`;
+    }
+    const chartHtml = weightLogs.length > 1 ? renderWeightChart() : '';
+    card.innerHTML = `<div class="label">Peso atual</div><div class="value-big">${current}kg</div>${goalHtml}${chartHtml}`;
+  }
+
+  function renderGoalsToggleState(mode){
+    document.querySelectorAll('#goals-toggle .segment-btn').forEach(b=> b.classList.toggle('active', b.dataset.mode===mode));
+    document.getElementById('goals-panel-semanal').classList.toggle('hidden', mode!=='semanal');
+    document.getElementById('goals-panel-mensal').classList.toggle('hidden', mode!=='mensal');
+    document.getElementById('goals-panel-peso').classList.toggle('hidden', mode!=='peso');
   }
 </script>
 </body>
