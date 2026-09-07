@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Treino</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -38,7 +38,7 @@
   .section{padding:0 20px 22px;}
   .section-title{font-size:14px;color:var(--text-muted);margin:0 0 10px;font-weight:600;}
 
-  .view.top-level{padding-bottom:86px;}
+  .view.top-level{padding-bottom:calc(86px + env(safe-area-inset-bottom));}
 
   .hero-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:26px 20px;text-align:center;margin:0 20px 16px;}
   .hero-number{font-size:52px;font-weight:800;line-height:1;}
@@ -82,7 +82,7 @@
 
   .back-row{padding:22px 20px 0;display:flex;align-items:center;gap:12px;}
   .back-btn{background:none;border:none;color:var(--text);font-size:22px;cursor:pointer;padding:0;line-height:1;}
-  .search-btn{background:none;border:1px solid var(--border);border-radius:10px;width:38px;height:38px;font-size:16px;color:var(--text);cursor:pointer;flex-shrink:0;}
+  .search-btn{background:none;border:1px solid var(--border);border-radius:10px;width:44px;height:44px;font-size:16px;color:var(--text);cursor:pointer;flex-shrink:0;}
 
   .session-banner{margin:14px 20px 0;padding:10px 14px;background:var(--surface-alt);border-radius:10px;font-size:13px;color:var(--text-muted);}
 
@@ -93,7 +93,7 @@
   label.field-label{font-size:13px;color:var(--text-muted);display:block;margin-bottom:6px;}
   input[type=text],input[type=number],input[type=date],input[type=email],input[type=password],select{
     width:100%;padding:12px;background:var(--surface-alt);border:1px solid var(--border);
-    border-radius:10px;color:var(--text);font-size:15px;
+    border-radius:10px;color:var(--text);font-size:16px;
   }
 
   .variation-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
@@ -117,7 +117,7 @@
   .rest-preset-chip.active{background:var(--accent);border-color:var(--accent);color:#fff;}
   .rest-controls{display:flex;gap:8px;align-items:center;}
   .rest-controls .btn-secondary{margin-top:0;width:auto;padding:14px 12px;flex:0 0 auto;}
-  .rest-controls .btn-primary{padding:14px;}
+  .rest-controls .btn-primary{padding:14px 8px;font-size:14px;white-space:nowrap;}
   @keyframes rest-pulse{0%,100%{opacity:1;}50%{opacity:0.35;}}
   #rest-timer-card.rest-done .rest-ring-progress{stroke:var(--success);}
   #rest-timer-card.rest-done .rest-timer-time{animation:rest-pulse 0.9s ease-in-out 3;}
