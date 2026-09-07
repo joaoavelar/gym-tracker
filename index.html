@@ -177,8 +177,10 @@
   .suggestion-item{padding:12px 0;border-bottom:1px solid var(--border);}
   .suggestion-item:last-child{border-bottom:none;}
   .suggestion-tag{display:inline-block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.02em;padding:3px 8px;border-radius:8px;margin-bottom:6px;}
+  .suggestion-tag.grupo{background:rgba(33,150,243,0.15);color:#2196f3;}
   .suggestion-tag.exercicio{background:rgba(76,175,80,0.15);color:var(--success);}
   .suggestion-tag.variacao{background:rgba(230,57,70,0.15);color:var(--accent);}
+  .suggestion-tag.carga{background:rgba(156,39,176,0.15);color:#ce93d8;}
   .suggestion-tag.tecnica{background:rgba(255,193,7,0.15);color:#ffc107;}
   .suggestion-title{font-weight:700;font-size:15px;margin-bottom:2px;}
   .suggestion-desc{font-size:13px;color:var(--text-muted);}
@@ -1385,7 +1387,21 @@
     return d.toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' }) + ' às ' + d.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
   }
 
-  const SUGGESTION_TYPE_LABEL = { exercicio:'Exercício', variacao:'Variação', tecnica:'Técnica' };
+  const SUGGESTION_TYPE_LABEL = { grupo:'Grupo muscular', exercicio:'Exercício', variacao:'Variação', carga:'Carga', tecnica:'Técnica' };
+  const AI_COOLDOWN_MINUTES = 60;
+
+  function formatCooldown(totalMinutes){
+    if (totalMinutes < 60) return `${totalMinutes}min`;
+    const h = Math.floor(totalMinutes/60);
+    const m = totalMinutes%60;
+    return m === 0 ? `${h}h` : `${h}h${m}min`;
+  }
+
+  function cooldownRemainingMinutes(){
+    if (!aiSuggestionsAt) return 0;
+    const elapsed = (Date.now() - new Date(aiSuggestionsAt).getTime()) / 60000;
+    return Math.max(0, Math.ceil(AI_COOLDOWN_MINUTES - elapsed));
+  }
 
   function renderSuggestions(suggestion){
     const card = document.getElementById('ai-suggestions-card');
@@ -1404,6 +1420,18 @@
     card.innerHTML = insightHtml + itemsHtml;
   }
 
+  function updateAnalyzeButtonState(){
+    const btn = document.getElementById('btn-analyze-workouts');
+    const remaining = cooldownRemainingMinutes();
+    if (remaining > 0){
+      btn.disabled = true;
+      btn.textContent = `⏳ Próxima análise em ${formatCooldown(remaining)}`;
+    }else{
+      btn.disabled = false;
+      btn.textContent = '🔍 Analisar meus treinos';
+    }
+  }
+
   function renderSuggestionsView(){
     const meta = document.getElementById('ai-suggestions-meta');
     if (aiSuggestions){
@@ -1413,20 +1441,26 @@
       document.getElementById('ai-suggestions-card').innerHTML = '<div class="empty-state">Registre pelo menos 3 treinos e toque em "Analisar meus treinos" para receber sugestões personalizadas de exercícios, variações e técnicas de intensidade.</div>';
       meta.textContent = '';
     }
+    updateAnalyzeButtonState();
   }
 
   async function analyzeWorkouts(){
     const btn = document.getElementById('btn-analyze-workouts');
     const card = document.getElementById('ai-suggestions-card');
     const meta = document.getElementById('ai-suggestions-meta');
-    const originalText = btn.textContent;
+    if (btn.disabled) return;
     btn.disabled = true;
     btn.textContent = 'Analisando...';
     card.innerHTML = '<div class="empty-state">Analisando seu histórico de treinos...</div>';
     try{
-      const { data, error } = await sb.functions.invoke('analyze-workouts');
+      const { data, error } = await sb.functions.invoke('analyze-workouts', {
+        body: { restPreferenceSeconds: restDuration }
+      });
       if (error) throw error;
-      if (data && data.error) throw new Error(data.error);
+      if (data && data.error){
+        if (data.retryAfterMinutes) aiSuggestionsAt = new Date(Date.now() - (AI_COOLDOWN_MINUTES - data.retryAfterMinutes) * 60000).toISOString();
+        throw new Error(data.error);
+      }
       aiSuggestions = data.suggestion;
       aiSuggestionsAt = new Date().toISOString();
       renderSuggestions(aiSuggestions);
@@ -1435,8 +1469,7 @@
       console.error('Erro ao analisar treinos', e);
       card.innerHTML = `<div class="empty-state">${(e && e.message) || 'Não foi possível gerar sugestões agora. Tente novamente mais tarde.'}</div>`;
     }finally{
-      btn.disabled = false;
-      btn.textContent = originalText;
+      updateAnalyzeButtonState();
     }
   }
 

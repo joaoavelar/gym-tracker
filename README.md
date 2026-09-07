@@ -82,7 +82,9 @@ supabase functions deploy analyze-workouts
 
 Pronto — a partir daí o botão "🔍 Analisar meus treinos" no app já funciona. É preciso ter pelo menos 3 treinos registrados para a análise funcionar. As sugestões ficam salvas no seu perfil (Supabase) e aparecem de novo ao reabrir a aba, sem precisar reanalisar toda vez.
 
-Por padrão a função usa o modelo `claude-opus-5`. Se quiser reduzir custo, edite `model` em `supabase/functions/analyze-workouts/index.ts` (ex: para `claude-sonnet-5` ou `claude-haiku-4-5`) e rode `supabase functions deploy analyze-workouts` de novo.
+**Custo:** a função usa `claude-haiku-4-5`, o modelo mais barato da Claude ($1 por milhão de tokens de entrada, $5 de saída) — cada análise custa uma fração de centavo (bem menos de US$ 0,01). Não existe um tier gratuito permanente na API da Anthropic, mas contas novas costumam vir com créditos iniciais para teste; confira em [console.anthropic.com](https://console.anthropic.com) → Billing. Se quiser mudar o modelo, edite a constante `MODEL` em `supabase/functions/analyze-workouts/index.ts` e rode `supabase functions deploy analyze-workouts` de novo.
+
+**Limite de uso:** para evitar gasto por cliques repetidos, a função só permite uma nova análise a cada `MIN_INTERVAL_MINUTES` (60 minutos por padrão) — tentativas antes disso são bloqueadas sem chamar a API. O botão no app já reflete esse cooldown. Ajuste a constante no início do arquivo da função se quiser um intervalo diferente.
 
 ### 6. Abrir o app
 
