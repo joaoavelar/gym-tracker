@@ -90,6 +90,15 @@ Pronto — a partir daí o botão "🔍 Analisar meus treinos" no app já funcio
 
 Abra `index.html` diretamente no navegador, ou publique a pasta em qualquer serviço de hospedagem estática.
 
+### 7. Instalar no celular como app (PWA)
+
+O app já é instalável — precisa estar publicado num link `https://` (GitHub Pages, por exemplo; não funciona abrindo o arquivo local).
+
+- **Android (Chrome)**: abra o link, toque no menu (⋮) → "Adicionar à tela inicial" ou "Instalar app".
+- **iPhone (Safari)**: abra o link, toque no botão de compartilhar (□↑) → "Adicionar à Tela de Início".
+
+Depois disso o app abre com ícone próprio, em tela cheia, sem a barra do navegador — como um app nativo. Login, treinos e IA continuam precisando de internet (dependem do Supabase), mas o app abre instantaneamente mesmo com conexão ruim.
+
 ## Funcionalidades
 
 - Login e cadastro com e-mail e senha, e login com Google (Supabase Auth), dados sincronizados entre dispositivos
@@ -107,6 +116,7 @@ Abra `index.html` diretamente no navegador, ou publique a pasta em qualquer serv
 - Botão para abrir uma busca de imagens do exercício no navegador, pra conferir a execução correta
 - Foto opcional ao concluir o treino, guardada com segurança (bucket privado, só você acessa)
 - Histórico clicável: toque num dia pra ver o resumo completo do treino e a foto, se registrada
+- Instalável como app no celular (PWA) — ícone na tela de início, abre em tela cheia, sem navegador
 
 ## Stack
 
