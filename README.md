@@ -11,7 +11,7 @@ O app é um único arquivo `index.html`, sem build, sem framework. Basta configu
 ### 1. Criar o projeto no Supabase
 
 1. Crie uma conta e um projeto em [supabase.com](https://supabase.com) (plano gratuito é suficiente).
-2. No painel do projeto, vá em **SQL Editor** → **New query**, cole o conteúdo de [`supabase/schema.sql`](supabase/schema.sql) e execute. Isso cria as tabelas `profiles`, `workouts`, `body_weight_logs` e `workout_photos`, o bucket de Storage `workout-photos` (privado) e as políticas de Row Level Security (cada pessoa só acessa os próprios dados e fotos). Se você já rodou esse script numa versão anterior do app, pode rodar de novo sem problema — ele só adiciona o que estiver faltando.
+2. No painel do projeto, vá em **SQL Editor** → **New query**, cole o conteúdo de [`supabase/schema.sql`](supabase/schema.sql) e execute. Isso cria as tabelas `profiles`, `workouts`, `body_weight_logs`, `workout_photos`, `custom_exercises` e `workout_templates`, o bucket de Storage `workout-photos` (privado) e as políticas de Row Level Security (cada pessoa só acessa os próprios dados e fotos). Se você já rodou esse script numa versão anterior do app, pode rodar de novo sem problema — ele só adiciona o que estiver faltando.
 3. Vá em **Project Settings > API** e copie a **Project URL** e a chave **anon public**.
 
 ### 2. Configurar o app
@@ -117,6 +117,13 @@ Depois disso o app abre com ícone próprio, em tela cheia, sem a barra do naveg
 - Foto opcional ao concluir o treino, guardada com segurança (bucket privado, só você acessa)
 - Histórico clicável: toque num dia pra ver o resumo completo do treino e a foto, se registrada
 - Instalável como app no celular (PWA) — ícone na tela de início, abre em tela cheia, sem navegador
+- Editar ou excluir um treino já registrado, direto pelo detalhe do dia
+- Recordes pessoais e volume total de treino (peso × séries × repetições) em Histórico → Métricas
+- Conquistas/selos desbloqueados automaticamente com base no seu histórico (aba Metas → Selos)
+- Exercícios personalizados: adicione os seus próprios além dos 23 pré-carregados
+- Modelos de treino (rotina A/B/C): monte uma sequência de exercícios e inicie o treino inteiro com um toque, avançando automaticamente entre eles
+- Exportar todo o histórico de treinos em CSV
+- Lembrete para treinar (notificação local, aparece quando você abre o app — não é push em segundo plano)
 
 ## Stack
 

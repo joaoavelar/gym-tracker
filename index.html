@@ -91,6 +91,7 @@
   .back-row{padding:calc(22px + env(safe-area-inset-top)) 20px 0;display:flex;align-items:center;gap:12px;}
   .back-btn{background:none;border:none;color:var(--text);font-size:22px;cursor:pointer;line-height:1;padding:11px;margin:-11px;flex-shrink:0;}
   .search-btn{background:none;border:1px solid var(--border);border-radius:10px;width:44px;height:44px;font-size:16px;color:var(--text);cursor:pointer;flex-shrink:0;}
+  .icon-btn{background:none;border:1px solid var(--border);border-radius:8px;width:34px;height:34px;font-size:15px;color:var(--text);cursor:pointer;flex-shrink:0;}
 
   .session-banner{margin:14px 20px 0;padding:10px 14px;background:var(--surface-alt);border-radius:10px;font-size:13px;color:var(--text-muted);}
 
@@ -205,6 +206,13 @@
 
   .photo-preview{width:100%;max-height:360px;object-fit:cover;border-radius:var(--radius);display:block;}
   .photo-badge{font-size:12px;}
+
+  .badge-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .badge-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;text-align:center;opacity:0.45;}
+  .badge-card.unlocked{opacity:1;border-color:var(--accent);}
+  .badge-icon{font-size:28px;margin-bottom:6px;}
+  .badge-title{font-weight:700;font-size:13px;margin-bottom:2px;}
+  .badge-desc{font-size:11px;color:var(--text-muted);}
 </style>
 </head>
 <body>
@@ -280,6 +288,10 @@
       <div id="recent-list"></div>
     </div>
     <div class="reset-row">
+      <button id="btn-reminders">🔔 Ativar lembretes</button>
+    </div>
+    <div class="label" style="text-align:center;font-size:11px;margin-top:4px;">O lembrete aparece quando você abre o app, não chega com o app fechado.</div>
+    <div class="reset-row" style="margin-top:6px;">
       <button id="btn-logout">Sair da conta</button>
       <span class="sep">·</span>
       <button id="btn-reset">Limpar dados</button>
@@ -294,12 +306,15 @@
     </div>
     <div id="history-days-panel" class="section">
       <div id="history-list"></div>
+      <button class="btn-secondary" id="btn-export-csv" type="button">⬇️ Exportar treinos (CSV)</button>
     </div>
     <div id="history-metrics-panel" class="section hidden">
       <div class="metric-tabs" id="metric-tabs">
         <button class="chip active" data-metric="monthly">📈 Por mês</button>
         <button class="chip" data-metric="group">💪 Por grupo</button>
         <button class="chip" data-metric="exercise">🏋️ Exercício</button>
+        <button class="chip" data-metric="volume">📊 Volume</button>
+        <button class="chip" data-metric="records">🏆 Recordes</button>
       </div>
       <div id="metric-content"></div>
     </div>
@@ -311,6 +326,7 @@
       <button class="segment-btn active" data-mode="semanal" type="button">Semanal</button>
       <button class="segment-btn" data-mode="mensal" type="button">Mensal</button>
       <button class="segment-btn" data-mode="peso" type="button">Peso</button>
+      <button class="segment-btn" data-mode="selos" type="button">Selos</button>
     </div>
 
     <div id="goals-panel-semanal" class="section">
@@ -342,6 +358,11 @@
         </div>
       </div>
       <div class="card" id="weight-progress-card"></div>
+    </div>
+
+    <div id="goals-panel-selos" class="section hidden">
+      <div class="section-title">Suas conquistas</div>
+      <div class="badge-grid" id="badge-grid"></div>
     </div>
   </div>
 
@@ -395,8 +416,35 @@
       <h2 style="margin:0;font-size:18px;">💪 Escolha o grupo</h2>
     </div>
     <div class="session-banner" id="session-banner-group"></div>
+    <div class="section" style="padding-bottom:0;">
+      <div class="section-title">📋 Meus modelos</div>
+      <div id="template-list"></div>
+      <button class="btn-secondary" id="btn-new-template" type="button">+ Criar modelo de treino</button>
+    </div>
     <div class="section">
+      <div class="section-title" style="margin-top:22px;">💪 Ou escolha um grupo</div>
       <div class="group-grid" id="group-list"></div>
+    </div>
+  </div>
+
+  <div id="view-template-builder" class="view hidden">
+    <div class="back-row">
+      <button class="back-btn" id="back-template-builder">&#8592;</button>
+      <h2 style="margin:0;font-size:18px;">📋 Novo modelo</h2>
+    </div>
+    <div class="section">
+      <label class="field-label">Nome do modelo</label>
+      <input type="text" id="template-name-input" placeholder="Ex: Treino A" style="margin-bottom:16px;">
+
+      <label class="field-label">Adicionar exercício</label>
+      <select id="template-group-select" style="margin-bottom:8px;"></select>
+      <select id="template-exercise-select" style="margin-bottom:8px;"></select>
+      <button class="btn-secondary" id="btn-template-add-exercise" type="button" style="margin-top:0;">+ Adicionar à lista</button>
+
+      <div class="section-title" style="margin-top:22px;">Exercícios do modelo</div>
+      <div id="template-exercise-list"></div>
+
+      <button class="btn-primary" id="btn-save-template" style="margin-top:22px;">💾 Salvar modelo</button>
     </div>
   </div>
 
@@ -408,6 +456,7 @@
     <div class="session-banner" id="session-banner-exercise"></div>
     <div class="section">
       <div id="exercise-list"></div>
+      <button class="btn-secondary" id="btn-add-custom-exercise" type="button">➕ Adicionar exercício</button>
     </div>
   </div>
 
@@ -569,6 +618,20 @@
     'Elevação de pernas': '<svg viewBox="0 0 40 40"><line x1="10" y1="4" x2="30" y2="4"/><line x1="20" y1="4" x2="20" y2="20"/><path d="M20 20 L30 10"/><path d="M27 9 L30 10 L29 13"/></svg>'
   };
 
+  function getDefaultExerciseIcon(){
+    return '<svg viewBox="0 0 40 40"><circle cx="8" cy="20" r="4"/><circle cx="32" cy="20" r="4"/><line x1="12" y1="20" x2="28" y2="20"/></svg>';
+  }
+
+  let customExercisesByGroup = {};
+
+  function getAllExercisesForGroup(group){
+    return [...EXERCISES[group].items, ...(customExercisesByGroup[group] || [])];
+  }
+
+  function getAllExercisesFlat(){
+    return Object.keys(EXERCISES).flatMap(group => getAllExercisesForGroup(group).map(exercise => ({ group, exercise })));
+  }
+
   const EXERCISE_VARIATIONS = {
     'Supino reto': ['barra reta','halteres','pegada fechada'],
     'Supino inclinado': ['barra','halteres','banco a 30°'],
@@ -607,7 +670,9 @@
   let weightLogs = [];
   let photosByDate = {};
   let pendingPhotoFile = null;
-  let state = { group:null, exercise:null, sets:[], date:null };
+  let state = { group:null, exercise:null, sets:[], date:null, editId:null, templateQueue:null, templateQueueIndex:0 };
+  let workoutTemplates = [];
+  let templateBuilderDraft = { name:'', exercises:[] };
   let sessionDate = todayISO();
 
   const REST_RING_CIRCUMFERENCE = 2 * Math.PI * 52;
@@ -659,6 +724,63 @@
     }).select().single();
     if (error) throw error;
     return rowToWorkout(data);
+  }
+
+  async function updateWorkout(id, entry){
+    const { data, error } = await sb.from('workouts').update({
+      date: entry.date,
+      muscle_group: entry.group,
+      exercise: entry.exercise,
+      sets: entry.sets,
+      note: entry.note,
+      feeling: entry.feeling
+    }).eq('id', id).select().single();
+    if (error) throw error;
+    return rowToWorkout(data);
+  }
+
+  async function deleteWorkoutEntry(id){
+    const { error } = await sb.from('workouts').delete().eq('id', id);
+    if (error) throw error;
+  }
+
+  async function loadCustomExercises(){
+    try{
+      const { data, error } = await sb.from('custom_exercises').select('muscle_group, name').order('created_at', { ascending:true });
+      if (error) throw error;
+      customExercisesByGroup = {};
+      (data || []).forEach(r => {
+        if (!customExercisesByGroup[r.muscle_group]) customExercisesByGroup[r.muscle_group] = [];
+        customExercisesByGroup[r.muscle_group].push(r.name);
+      });
+    }catch(e){ console.error('Erro ao carregar exercícios personalizados', e); customExercisesByGroup = {}; }
+  }
+
+  async function saveCustomExercise(group, name){
+    const { error } = await sb.from('custom_exercises').insert({ user_id: currentUser.id, muscle_group: group, name });
+    if (error) throw error;
+    if (!customExercisesByGroup[group]) customExercisesByGroup[group] = [];
+    customExercisesByGroup[group].push(name);
+  }
+
+  async function loadTemplates(){
+    try{
+      const { data, error } = await sb.from('workout_templates').select('id, name, exercises').order('created_at', { ascending:true });
+      if (error) throw error;
+      workoutTemplates = (data || []).map(r => ({ id:r.id, name:r.name, exercises: r.exercises || [] }));
+    }catch(e){ console.error('Erro ao carregar modelos', e); workoutTemplates = []; }
+  }
+
+  async function saveTemplate(name, exercises){
+    const { data, error } = await sb.from('workout_templates').insert({ user_id: currentUser.id, name, exercises }).select().single();
+    if (error) throw error;
+    workoutTemplates.push({ id:data.id, name:data.name, exercises:data.exercises || [] });
+  }
+
+  async function deleteTemplate(id){
+    const { error } = await sb.from('workout_templates').delete().eq('id', id);
+    if (error) throw error;
+    workoutTemplates = workoutTemplates.filter(t => t.id != id);
   }
 
   async function loadProfile(){
@@ -860,6 +982,49 @@
     return streak;
   }
 
+  function longestStreakEver(){
+    const days = [...new Set(workouts.map(w=>w.date))].sort();
+    let longest = 0, current = 0, prevDate = null;
+    days.forEach(d => {
+      if (prevDate){
+        const diff = Math.round((Date.parse(d) - Date.parse(prevDate)) / 86400000);
+        current = diff === 1 ? current + 1 : 1;
+      }else{
+        current = 1;
+      }
+      if (current > longest) longest = current;
+      prevDate = d;
+    });
+    return longest;
+  }
+
+  const ACHIEVEMENTS = [
+    { icon:'💪', title:'Primeiro treino', desc:'Registre seu primeiro treino', check: () => getTrainingDaysGrouped().length >= 1 },
+    { icon:'🔥', title:'3 dias seguidos', desc:'Treine 3 dias seguidos', check: () => longestStreakEver() >= 3 },
+    { icon:'🔥', title:'Uma semana de fogo', desc:'Treine 7 dias seguidos', check: () => longestStreakEver() >= 7 },
+    { icon:'🔥', title:'Um mês imparável', desc:'Treine 30 dias seguidos', check: () => longestStreakEver() >= 30 },
+    { icon:'📅', title:'10 dias treinados', desc:'Complete 10 dias de treino no total', check: () => getTrainingDaysGrouped().length >= 10 },
+    { icon:'📅', title:'50 dias treinados', desc:'Complete 50 dias de treino no total', check: () => getTrainingDaysGrouped().length >= 50 },
+    { icon:'📅', title:'100 dias treinados', desc:'Complete 100 dias de treino no total', check: () => getTrainingDaysGrouped().length >= 100 },
+    { icon:'🏋️', title:'Variedade', desc:'Registre 10 exercícios diferentes', check: () => new Set(workouts.map(w=>w.exercise)).size >= 10 },
+    { icon:'🎯', title:'Meta batida', desc:'Bata sua meta semanal', check: () => !!(weeklyGoal && trainedDaysThisWeek() >= weeklyGoal) },
+    { icon:'⚖️', title:'Peso registrado', desc:'Registre seu peso corporal', check: () => weightLogs.length > 0 },
+    { icon:'📸', title:'Primeira foto', desc:'Guarde uma foto de um treino', check: () => Object.keys(photosByDate).length > 0 },
+    { icon:'🤖', title:'Usou a IA', desc:'Peça uma análise pra IA', check: () => !!aiSuggestionsAt },
+  ];
+
+  function renderAchievements(){
+    const grid = document.getElementById('badge-grid');
+    grid.innerHTML = ACHIEVEMENTS.map(a => {
+      const unlocked = a.check();
+      return `<div class="badge-card ${unlocked ? 'unlocked' : ''}">
+          <div class="badge-icon">${unlocked ? a.icon : '🔒'}</div>
+          <div class="badge-title">${a.title}</div>
+          <div class="badge-desc">${a.desc}</div>
+        </div>`;
+    }).join('');
+  }
+
   function getStreakDates(){
     const daysSet = new Set(workouts.map(w=>w.date));
     const dates = [];
@@ -912,6 +1077,8 @@
 
   function goHome(){
     sessionDate = todayISO();
+    state.templateQueue = null;
+    state.templateQueueIndex = 0;
     renderHome();
     showView('view-home');
   }
@@ -991,6 +1158,113 @@
     days.forEach(d => renderDayRow(container, d, streakDates, true));
   }
 
+  function remindersEnabled(){
+    try{ return localStorage.getItem('gymtracker:remindersEnabled') === 'true'; }catch(e){ return false; }
+  }
+
+  function updateReminderButtonLabel(){
+    const btn = document.getElementById('btn-reminders');
+    if (!btn) return;
+    if (!('Notification' in window)){
+      btn.textContent = 'Lembretes indisponíveis neste navegador';
+      btn.disabled = true;
+      return;
+    }
+    btn.textContent = (remindersEnabled() && Notification.permission === 'granted')
+      ? '🔕 Desativar lembretes'
+      : '🔔 Ativar lembretes';
+  }
+
+  async function toggleReminders(){
+    if (!('Notification' in window)){
+      alert('Seu navegador não suporta notificações.');
+      return;
+    }
+    if (remindersEnabled() && Notification.permission === 'granted'){
+      try{ localStorage.setItem('gymtracker:remindersEnabled', 'false'); }catch(e){}
+      updateReminderButtonLabel();
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    if (permission === 'granted'){
+      try{ localStorage.setItem('gymtracker:remindersEnabled', 'true'); }catch(e){}
+      try{ new Notification('Treino', { body:'Lembretes ativados! Vamos te avisar quando fizer sentido treinar. 💪', icon:'icons/icon-192.png' }); }catch(e){}
+    }else{
+      alert('Permissão de notificação negada. Você pode ativar depois nas configurações do navegador.');
+    }
+    updateReminderButtonLabel();
+  }
+
+  function maybeShowTrainingReminder(){
+    if (!('Notification' in window)) return;
+    if (!remindersEnabled() || Notification.permission !== 'granted') return;
+    let lastShown = null;
+    try{ lastShown = localStorage.getItem('gymtracker:lastReminderShown'); }catch(e){}
+    if (lastShown === todayISO()) return;
+
+    const trainedToday = workouts.some(w => w.date === todayISO());
+    if (trainedToday) return;
+
+    const days = getTrainingDaysGrouped();
+    const daysSinceLast = days.length > 0 ? daysSince(days[0].date) : null;
+    let message = null;
+
+    if (daysSinceLast !== null && daysSinceLast >= 3){
+      message = `Já fazem ${daysSinceLast} dias sem treinar. Bora retomar hoje? 💪`;
+    }else if (weeklyGoal){
+      const trained = trainedDaysThisWeek();
+      const dow = new Date(todayISO()+'T00:00:00').getDay();
+      const remainingDaysInWeek = dow === 0 ? 1 : 8 - dow;
+      if (trained < weeklyGoal && (weeklyGoal - trained) >= remainingDaysInWeek){
+        const falta = weeklyGoal - trained;
+        message = `Faltam ${falta} treino${falta>1?'s':''} pra bater sua meta essa semana 🎯`;
+      }
+    }
+
+    if (message){
+      try{
+        new Notification('Treino', { body: message, icon: 'icons/icon-192.png' });
+        localStorage.setItem('gymtracker:lastReminderShown', todayISO());
+      }catch(e){ console.error('Erro ao mostrar lembrete', e); }
+    }
+  }
+
+  function csvEscape(value){
+    const str = String(value ?? '');
+    if (/[",\n]/.test(str)) return '"' + str.replace(/"/g, '""') + '"';
+    return str;
+  }
+
+  function exportWorkoutsCSV(){
+    if (workouts.length === 0){
+      alert('Nenhum treino registrado ainda para exportar.');
+      return;
+    }
+    const header = ['Data','Grupo muscular','Exercício','Séries (peso x reps)','Nota','Sensação'];
+    const rows = [...workouts].sort((a,b)=> a.date.localeCompare(b.date)).map(w => {
+      const setsText = w.sets.map(s => `${s.peso}kg x ${s.reps}`).join('; ');
+      const feeling = FEELINGS.find(f=>f.id===w.feeling);
+      return [
+        w.date,
+        EXERCISES[w.group] ? EXERCISES[w.group].label : w.group,
+        w.exercise,
+        setsText,
+        w.note || '',
+        feeling ? feeling.label : ''
+      ];
+    });
+    const csvLines = [header, ...rows].map(row => row.map(csvEscape).join(',')).join('\r\n');
+    const blob = new Blob(['\uFEFF' + csvLines], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `treinos-${todayISO()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
   async function openDayDetail(dateStr){
     let dateLabel;
     if (dateStr === todayISO()) dateLabel = 'Hoje';
@@ -1010,11 +1284,16 @@
         const setsText = w.sets.map(s => `${s.peso}kg x ${s.reps}`).join(', ');
         const feeling = FEELINGS.find(f => f.id === w.feeling);
         const feelingText = feeling ? feeling.label : '';
+        const isPR = w.sets.some(s => s.peso === recordForExercise(w.exercise) && s.peso > 0);
         return `<div class="list-row">
-            <div class="exercise-icon">${EXERCISE_ICONS[w.exercise] || ''}</div>
+            <div class="exercise-icon">${EXERCISE_ICONS[w.exercise] || getDefaultExerciseIcon()}</div>
             <div style="flex:1;">
-              <div class="name">${w.exercise}${w.note ? ` <span style="color:var(--text-muted);font-weight:400;">— ${w.note}</span>` : ''}</div>
+              <div class="name">${w.exercise}${isPR ? ' 🏆' : ''}${w.note ? ` <span style="color:var(--text-muted);font-weight:400;">— ${w.note}</span>` : ''}</div>
               <div class="sub">${setsText}${feelingText ? ' · ' + feelingText : ''}</div>
+            </div>
+            <div style="display:flex;gap:4px;">
+              <button class="icon-btn" data-edit-id="${w.id}" type="button" title="Editar">✏️</button>
+              <button class="icon-btn" data-delete-id="${w.id}" type="button" title="Excluir">🗑️</button>
             </div>
           </div>`;
       }).join('');
@@ -1022,6 +1301,16 @@
     }).join('');
 
     document.getElementById('day-detail-content').innerHTML = content || '<div class="empty-state">Nenhum treino nesse dia.</div>';
+
+    document.querySelectorAll('#day-detail-content [data-edit-id]').forEach(btn=>{
+      btn.onclick = () => {
+        const w = workouts.find(x => x.id == btn.dataset.editId);
+        if (w) openEditWorkout(w);
+      };
+    });
+    document.querySelectorAll('#day-detail-content [data-delete-id]').forEach(btn=>{
+      btn.onclick = () => deleteWorkoutRow(btn.dataset.deleteId, dateStr);
+    });
 
     const photoImg = document.getElementById('day-detail-photo');
     photoImg.classList.add('hidden');
@@ -1113,6 +1402,62 @@
     `;
   }
 
+  function volumeForMonth(key){
+    return workouts
+      .filter(w => monthKey(w.date) === key)
+      .reduce((sum, w) => sum + w.sets.reduce((s, set) => s + set.peso * set.reps, 0), 0);
+  }
+
+  function renderVolumeComparison(){
+    const now = new Date(todayISO()+'T00:00:00');
+    const thisKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    const prevD = new Date(now.getFullYear(), now.getMonth()-1, 1);
+    const prevKey = `${prevD.getFullYear()}-${String(prevD.getMonth()+1).padStart(2,'0')}`;
+    const thisVol = Math.round(volumeForMonth(thisKey));
+    const prevVol = Math.round(volumeForMonth(prevKey));
+    let msg;
+    if (thisVol > prevVol) msg = `${(thisVol-prevVol).toLocaleString('pt-BR')}kg a mais que o mês passado 📈`;
+    else if (thisVol < prevVol) msg = `${(prevVol-thisVol).toLocaleString('pt-BR')}kg a menos que o mês passado`;
+    else msg = 'Mesmo volume do mês passado';
+    return `<div class="compare-row">
+        <div class="compare-item"><div class="value-big">${thisVol.toLocaleString('pt-BR')}kg</div><div class="label">Este mês</div></div>
+        <div class="compare-item"><div class="value-big">${prevVol.toLocaleString('pt-BR')}kg</div><div class="label">Mês passado</div></div>
+      </div>
+      <div class="label" style="margin-top:10px;">${msg}</div>`;
+  }
+
+  function renderVolumeChart(){
+    const keys = lastNMonthsKeys(6);
+    const volumes = keys.map(k => Math.round(volumeForMonth(k)));
+    const max = Math.max(1, ...volumes);
+    const bars = keys.map((k,i)=>{
+      const h = Math.round((volumes[i]/max)*90) + 6;
+      const label = volumes[i] >= 1000 ? Math.round(volumes[i]/1000) + 'k' : volumes[i];
+      return `<div class="bar-col"><div class="bar-value">${label}</div><div class="bar" style="height:${h}px;"></div><div class="bar-label">${monthLabel(k)}</div></div>`;
+    }).join('');
+    return `<div class="section-title">Volume por mês (kg, últimos 6 meses)</div><div class="bar-chart">${bars}</div>`;
+  }
+
+  function renderRecordsList(){
+    const allExercises = getAllExercisesFlat();
+    const withRecords = allExercises
+      .map(e => ({ ...e, record: recordForExercise(e.exercise) }))
+      .filter(e => e.record > 0)
+      .sort((a,b) => b.record - a.record);
+    if (withRecords.length === 0) return '<div class="empty-state">Registre treinos com peso para ver seus recordes aqui.</div>';
+    const rows = withRecords.map(e => `
+      <div class="list-row">
+        <div class="exercise-icon">${EXERCISE_ICONS[e.exercise] || getDefaultExerciseIcon()}</div>
+        <div style="flex:1;">
+          <div class="name">${e.exercise}</div>
+          <div class="sub">${GROUP_EMOJI[e.group]} ${EXERCISES[e.group].label}</div>
+        </div>
+        <div class="value">🏆 ${e.record}kg</div>
+      </div>
+    `).join('');
+    return `<div class="section-title">Seus recordes de peso</div>${rows}`;
+  }
+
   function renderHistoryToggleState(mode){
     document.querySelectorAll('#history-toggle .segment-btn').forEach(b=> b.classList.toggle('active', b.dataset.mode===mode));
     document.getElementById('history-days-panel').classList.toggle('hidden', mode!=='days');
@@ -1126,8 +1471,12 @@
       container.innerHTML = `<div class="card">${renderMonthComparison()}</div><div class="card">${renderMonthlyChart()}</div>`;
     }else if (metric === 'group'){
       container.innerHTML = `<div class="card">${renderGroupFrequencyChart()}</div>`;
+    }else if (metric === 'volume'){
+      container.innerHTML = `<div class="card">${renderVolumeComparison()}</div><div class="card">${renderVolumeChart()}</div>`;
+    }else if (metric === 'records'){
+      container.innerHTML = `<div class="card">${renderRecordsList()}</div>`;
     }else{
-      const allExercises = Object.values(EXERCISES).flatMap(g=>g.items);
+      const allExercises = getAllExercisesFlat().map(e=>e.exercise);
       const options = allExercises.map(ex=> `<option value="${ex}">${ex}</option>`).join('');
       container.innerHTML = `<div class="card">
           <label class="field-label">Exercício</label>
@@ -1155,7 +1504,100 @@
       btn.onclick = () => openExerciseSelect(key);
       container.appendChild(btn);
     });
+    renderTemplateList();
     updateSessionBanners();
+  }
+
+  function renderTemplateList(){
+    const container = document.getElementById('template-list');
+    if (workoutTemplates.length === 0){
+      container.innerHTML = '<div class="empty-state">Nenhum modelo criado ainda.</div>';
+      return;
+    }
+    container.innerHTML = workoutTemplates.map(t => `
+      <div class="list-row">
+        <div style="flex:1;">
+          <div class="name">${t.name}</div>
+          <div class="sub">${t.exercises.length} exercício${t.exercises.length===1?'':'s'}</div>
+        </div>
+        <button class="btn-secondary" data-use-template="${t.id}" type="button" style="margin-top:0;width:auto;padding:10px 16px;">▶️ Usar</button>
+        <button class="icon-btn" data-delete-template="${t.id}" type="button" title="Excluir" style="margin-left:6px;">🗑️</button>
+      </div>
+    `).join('');
+    container.querySelectorAll('[data-use-template]').forEach(btn=>{
+      btn.onclick = () => {
+        const t = workoutTemplates.find(x => x.id == btn.dataset.useTemplate);
+        if (t) useTemplate(t);
+      };
+    });
+    container.querySelectorAll('[data-delete-template]').forEach(btn=>{
+      btn.onclick = () => deleteTemplateRow(btn.dataset.deleteTemplate);
+    });
+  }
+
+  function useTemplate(template){
+    if (!template.exercises || template.exercises.length === 0){
+      alert('Esse modelo não tem exercícios.');
+      return;
+    }
+    state.templateQueue = template.exercises;
+    state.templateQueueIndex = 0;
+    sessionDate = todayISO();
+    const first = state.templateQueue[0];
+    state.group = first.group;
+    openLogExercise(first.exercise);
+  }
+
+  async function deleteTemplateRow(id){
+    if (!confirm('Excluir esse modelo de treino?')) return;
+    try{
+      await deleteTemplate(id);
+      renderTemplateList();
+    }catch(e){
+      console.error('Erro ao excluir modelo', e);
+      alert('Não foi possível excluir. Tente novamente.');
+    }
+  }
+
+  function openTemplateBuilder(){
+    templateBuilderDraft = { name:'', exercises:[] };
+    document.getElementById('template-name-input').value = '';
+    const groupSelect = document.getElementById('template-group-select');
+    groupSelect.innerHTML = Object.keys(EXERCISES).map(k=> `<option value="${k}">${GROUP_EMOJI[k]} ${EXERCISES[k].label}</option>`).join('');
+    updateTemplateExerciseSelect();
+    groupSelect.onchange = updateTemplateExerciseSelect;
+    renderTemplateBuilderList();
+    showView('view-template-builder');
+  }
+
+  function updateTemplateExerciseSelect(){
+    const group = document.getElementById('template-group-select').value;
+    const exerciseSelect = document.getElementById('template-exercise-select');
+    exerciseSelect.innerHTML = getAllExercisesForGroup(group).map(ex => `<option value="${ex}">${ex}</option>`).join('');
+  }
+
+  function renderTemplateBuilderList(){
+    const container = document.getElementById('template-exercise-list');
+    if (templateBuilderDraft.exercises.length === 0){
+      container.innerHTML = '<div class="empty-state">Nenhum exercício adicionado ainda.</div>';
+      return;
+    }
+    container.innerHTML = templateBuilderDraft.exercises.map((e,i) => `
+      <div class="list-row">
+        <div class="exercise-icon">${EXERCISE_ICONS[e.exercise]||getDefaultExerciseIcon()}</div>
+        <div style="flex:1;">
+          <div class="name">${e.exercise}</div>
+          <div class="sub">${GROUP_EMOJI[e.group]} ${EXERCISES[e.group].label}</div>
+        </div>
+        <button class="remove" data-remove-template-item="${i}" type="button">&times;</button>
+      </div>
+    `).join('');
+    container.querySelectorAll('[data-remove-template-item]').forEach(btn=>{
+      btn.onclick = () => {
+        templateBuilderDraft.exercises.splice(Number(btn.dataset.removeTemplateItem), 1);
+        renderTemplateBuilderList();
+      };
+    });
   }
 
   function sessionBannerText(){
@@ -1176,21 +1618,40 @@
 
   function openExerciseSelect(group){
     state.group = group;
+    state.templateQueue = null;
+    state.templateQueueIndex = 0;
     document.getElementById('exercise-group-title').textContent = `${GROUP_EMOJI[group]} ${EXERCISES[group].label}`;
     const list = document.getElementById('exercise-list');
     list.innerHTML = '';
-    EXERCISES[group].items.forEach(ex=>{
+    getAllExercisesForGroup(group).forEach(ex=>{
       const last = lastEntryForExercise(ex);
       const row = document.createElement('div');
       row.className = 'list-row';
       row.style.cursor = 'pointer';
       const lastLabel = last ? `${last.sets[last.sets.length-1].peso}kg` : 'Novo';
-      row.innerHTML = `<div class="exercise-icon">${EXERCISE_ICONS[ex]||''}</div><div style="flex:1;"><div class="name">${ex}</div></div><div class="value">${lastLabel}</div>`;
+      row.innerHTML = `<div class="exercise-icon">${EXERCISE_ICONS[ex]||getDefaultExerciseIcon()}</div><div style="flex:1;"><div class="name">${ex}</div></div><div class="value">${lastLabel}</div>`;
       row.onclick = () => openLogExercise(ex);
       list.appendChild(row);
     });
     updateSessionBanners();
     showView('view-exercise');
+  }
+
+  async function addCustomExercise(group){
+    const name = (prompt('Nome do novo exercício:') || '').trim();
+    if (!name) return;
+    const existing = getAllExercisesForGroup(group);
+    if (existing.some(e => e.toLowerCase() === name.toLowerCase())){
+      alert('Esse exercício já existe nesse grupo.');
+      return;
+    }
+    try{
+      await saveCustomExercise(group, name);
+      openExerciseSelect(group);
+    }catch(e){
+      console.error('Erro ao adicionar exercício', e);
+      alert('Não foi possível adicionar o exercício. Tente novamente.');
+    }
   }
 
   function renderFeelingButtons(){
@@ -1201,6 +1662,7 @@
       btn.type = 'button';
       btn.className = 'feeling-btn';
       btn.textContent = f.label;
+      btn.dataset.feeling = f.id;
       btn.onclick = () => selectFeeling(f.id, btn);
       container.appendChild(btn);
     });
@@ -1342,10 +1804,14 @@
     state.sets = [];
     state.feeling = null;
     state.date = sessionDate;
+    state.editId = null;
 
     document.getElementById('log-exercise-name').textContent = exercise;
-    document.getElementById('log-group-name').textContent = `${GROUP_EMOJI[state.group]} ${EXERCISES[state.group].label}`;
-    document.getElementById('log-icon').innerHTML = EXERCISE_ICONS[exercise] || '';
+    const groupLabel = `${GROUP_EMOJI[state.group]} ${EXERCISES[state.group].label}`;
+    const queueLabel = state.templateQueue ? ` · Exercício ${state.templateQueueIndex+1} de ${state.templateQueue.length}` : '';
+    document.getElementById('log-group-name').textContent = groupLabel + queueLabel;
+    document.getElementById('log-icon').innerHTML = EXERCISE_ICONS[exercise] || getDefaultExerciseIcon();
+    document.getElementById('btn-save-workout').textContent = '✅ Salvar treino';
 
     const last = lastEntryForExercise(exercise);
     const lastCard = document.getElementById('last-time-card');
@@ -1371,6 +1837,38 @@
     dateInput.max = todayISO();
     dateInput.value = state.date;
     document.querySelectorAll('.feeling-btn').forEach(b=>b.classList.remove('selected'));
+
+    stopRestTimer(false);
+    renderSets();
+    showView('view-log');
+  }
+
+  function openEditWorkout(w){
+    state.group = w.group;
+    state.exercise = w.exercise;
+    state.editId = w.id;
+    state.sets = w.sets.map(s => ({ peso:s.peso, reps:s.reps }));
+    state.feeling = w.feeling || null;
+    state.date = w.date;
+
+    document.getElementById('log-exercise-name').textContent = w.exercise;
+    document.getElementById('log-group-name').textContent = `${GROUP_EMOJI[w.group]} ${EXERCISES[w.group].label}`;
+    document.getElementById('log-icon').innerHTML = EXERCISE_ICONS[w.exercise] || getDefaultExerciseIcon();
+    document.getElementById('btn-save-workout').textContent = '💾 Salvar alterações';
+    document.getElementById('last-time-card').classList.add('hidden');
+
+    document.getElementById('note-input').value = w.note || '';
+    const variations = EXERCISE_VARIATIONS[w.exercise] || [];
+    const chipsContainer = document.getElementById('variation-chips');
+    chipsContainer.innerHTML = variations.map(v=> `<button type="button" class="variation-chip" data-v="${v}">${v}</button>`).join('');
+    chipsContainer.querySelectorAll('.variation-chip').forEach(btn=>{
+      btn.onclick = () => { document.getElementById('note-input').value = btn.dataset.v; };
+    });
+
+    const dateInput = document.getElementById('date-input');
+    dateInput.max = todayISO();
+    dateInput.value = w.date;
+    document.querySelectorAll('.feeling-btn').forEach(b=> b.classList.toggle('selected', b.dataset.feeling === w.feeling));
 
     stopRestTimer(false);
     renderSets();
@@ -1439,40 +1937,71 @@
       alert('Não é possível registrar um treino em uma data futura.');
       return;
     }
-    const prevRecord = recordForExercise(state.exercise);
-    const newMax = Math.max(...validSets.map(s=>s.peso));
-    const isRecord = newMax > prevRecord;
-
     const saveBtn = document.getElementById('btn-save-workout');
     saveBtn.disabled = true;
     saveBtn.textContent = 'Salvando...';
 
-    try{
-      const savedEntry = await insertWorkout({
-        date: chosenDate,
-        group: state.group,
-        exercise: state.exercise,
-        sets: validSets,
-        note: document.getElementById('note-input').value.trim(),
-        feeling: state.feeling
-      });
-      workouts.push(savedEntry);
-      sessionDate = chosenDate;
+    const entry = {
+      date: chosenDate,
+      group: state.group,
+      exercise: state.exercise,
+      sets: validSets,
+      note: document.getElementById('note-input').value.trim(),
+      feeling: state.feeling
+    };
 
-      const newStreak = computeStreak();
-      document.getElementById('saved-summary').innerHTML = `
-        <div class="value-big">${savedEntry.exercise}</div>
-        <div class="label">${validSets.length} série(s) registradas</div>
-        ${isRecord ? '<div class="record-flag">🏆 Novo recorde de peso</div>' : ''}
-        <div class="label" style="margin-top:8px;">🔥 Sequência: ${newStreak} dia${newStreak===1?'':'s'} seguido${newStreak===1?'':'s'}</div>
-      `;
-      showView('view-saved');
+    try{
+      if (state.editId){
+        const updated = await updateWorkout(state.editId, entry);
+        const idx = workouts.findIndex(w => w.id === state.editId);
+        if (idx !== -1) workouts[idx] = updated;
+        state.editId = null;
+        openDayDetail(chosenDate);
+      }else{
+        const prevRecord = recordForExercise(state.exercise);
+        const newMax = Math.max(...validSets.map(s=>s.peso));
+        const isRecord = newMax > prevRecord;
+
+        const savedEntry = await insertWorkout(entry);
+        workouts.push(savedEntry);
+        sessionDate = chosenDate;
+
+        if (state.templateQueue && state.templateQueueIndex < state.templateQueue.length - 1){
+          state.templateQueueIndex++;
+          const next = state.templateQueue[state.templateQueueIndex];
+          state.group = next.group;
+          openLogExercise(next.exercise);
+        }else{
+          state.templateQueue = null;
+          state.templateQueueIndex = 0;
+          const newStreak = computeStreak();
+          document.getElementById('saved-summary').innerHTML = `
+            <div class="value-big">${savedEntry.exercise}</div>
+            <div class="label">${validSets.length} série(s) registradas</div>
+            ${isRecord ? '<div class="record-flag">🏆 Novo recorde de peso</div>' : ''}
+            <div class="label" style="margin-top:8px;">🔥 Sequência: ${newStreak} dia${newStreak===1?'':'s'} seguido${newStreak===1?'':'s'}</div>
+          `;
+          showView('view-saved');
+        }
+      }
     }catch(e){
       console.error('Erro ao salvar treino', e);
       alert('Não foi possível salvar o treino. Verifique sua conexão e tente novamente.');
     }finally{
       saveBtn.disabled = false;
-      saveBtn.textContent = '✅ Salvar treino';
+      saveBtn.textContent = state.editId ? '💾 Salvar alterações' : '✅ Salvar treino';
+    }
+  }
+
+  async function deleteWorkoutRow(id, dateStr){
+    if (!confirm('Excluir esse exercício do treino desse dia?')) return;
+    try{
+      await deleteWorkoutEntry(id);
+      workouts = workouts.filter(w => w.id != id);
+      openDayDetail(dateStr);
+    }catch(e){
+      console.error('Erro ao excluir treino', e);
+      alert('Não foi possível excluir. Tente novamente.');
     }
   }
 
@@ -1577,7 +2106,9 @@
     if (window.location.search || window.location.hash){
       window.history.replaceState({}, document.title, window.location.pathname);
     }
-    await Promise.all([loadWorkouts(), loadProfile(), loadWeightLogs(), loadWorkoutPhotos()]);
+    await Promise.all([loadWorkouts(), loadProfile(), loadWeightLogs(), loadWorkoutPhotos(), loadCustomExercises(), loadTemplates()]);
+    updateReminderButtonLabel();
+    maybeShowTrainingReminder();
     if (!userName){
       showView('view-onboarding');
     }else{
@@ -1610,7 +2141,43 @@
     document.getElementById('btn-registrar').onclick = () => { renderGroupView(); showView('view-group'); };
     document.getElementById('back-group').onclick = goHome;
     document.getElementById('back-exercise').onclick = () => { renderGroupView(); showView('view-group'); };
-    document.getElementById('back-log').onclick = () => openExerciseSelect(state.group);
+    document.getElementById('btn-add-custom-exercise').onclick = () => addCustomExercise(state.group);
+    document.getElementById('btn-new-template').onclick = openTemplateBuilder;
+    document.getElementById('back-template-builder').onclick = () => { renderGroupView(); showView('view-group'); };
+    document.getElementById('btn-template-add-exercise').onclick = () => {
+      const group = document.getElementById('template-group-select').value;
+      const exercise = document.getElementById('template-exercise-select').value;
+      if (!exercise) return;
+      templateBuilderDraft.exercises.push({ group, exercise });
+      renderTemplateBuilderList();
+    };
+    document.getElementById('btn-save-template').onclick = async () => {
+      const name = document.getElementById('template-name-input').value.trim();
+      if (!name){ alert('Digite um nome para o modelo.'); return; }
+      if (templateBuilderDraft.exercises.length === 0){ alert('Adicione pelo menos um exercício.'); return; }
+      const btn = document.getElementById('btn-save-template');
+      btn.disabled = true;
+      btn.textContent = 'Salvando...';
+      try{
+        await saveTemplate(name, templateBuilderDraft.exercises);
+        renderGroupView();
+        showView('view-group');
+      }catch(e){
+        console.error('Erro ao salvar modelo', e);
+        alert('Não foi possível salvar o modelo. Tente novamente.');
+      }finally{
+        btn.disabled = false;
+        btn.textContent = '💾 Salvar modelo';
+      }
+    };
+    document.getElementById('back-log').onclick = () => {
+      if (state.editId){
+        state.editId = null;
+        showView('view-day-detail');
+      }else{
+        openExerciseSelect(state.group);
+      }
+    };
     document.getElementById('btn-add-set').onclick = addSet;
     document.getElementById('btn-repeat-set').onclick = repeatLastSet;
     document.getElementById('btn-save-workout').onclick = saveWorkout;
@@ -1648,6 +2215,7 @@
     document.getElementById('back-day-detail').onclick = () => showView('view-history');
     document.getElementById('btn-reset').onclick = resetData;
     document.getElementById('btn-logout').onclick = handleLogout;
+    document.getElementById('btn-reminders').onclick = toggleReminders;
 
     document.getElementById('btn-tab-home').onclick = () => { renderHome(); showView('view-home'); };
     document.getElementById('btn-tab-history').onclick = () => {
@@ -1656,6 +2224,7 @@
       renderHistoryToggleState('days');
       showView('view-history');
     };
+    document.getElementById('btn-export-csv').onclick = exportWorkoutsCSV;
     document.getElementById('btn-tab-goals').onclick = () => { renderGoals(); renderGoalsToggleState('semanal'); showView('view-goals'); };
     document.getElementById('week-pill').onclick = () => { renderGoals(); renderGoalsToggleState('semanal'); showView('view-goals'); };
     document.getElementById('btn-tab-suggestions').onclick = () => { renderSuggestionsView(); showView('view-suggestions'); };
@@ -1919,6 +2488,8 @@
     document.getElementById('goals-panel-semanal').classList.toggle('hidden', mode!=='semanal');
     document.getElementById('goals-panel-mensal').classList.toggle('hidden', mode!=='mensal');
     document.getElementById('goals-panel-peso').classList.toggle('hidden', mode!=='peso');
+    document.getElementById('goals-panel-selos').classList.toggle('hidden', mode!=='selos');
+    if (mode === 'selos') renderAchievements();
   }
 </script>
 </body>

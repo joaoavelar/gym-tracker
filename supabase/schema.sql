@@ -99,3 +99,37 @@ create policy "Users manage their own workout photo files"
   for all
   using (bucket_id = 'workout-photos' and (storage.foldername(name))[1] = auth.uid()::text)
   with check (bucket_id = 'workout-photos' and (storage.foldername(name))[1] = auth.uid()::text);
+
+create table if not exists public.custom_exercises (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  muscle_group text not null,
+  name text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.custom_exercises enable row level security;
+
+drop policy if exists "Users manage their own custom exercises" on public.custom_exercises;
+create policy "Users manage their own custom exercises"
+  on public.custom_exercises
+  for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create table if not exists public.workout_templates (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null,
+  exercises jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+alter table public.workout_templates enable row level security;
+
+drop policy if exists "Users manage their own workout templates" on public.workout_templates;
+create policy "Users manage their own workout templates"
+  on public.workout_templates
+  for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
