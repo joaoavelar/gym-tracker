@@ -107,6 +107,7 @@
 
   .variation-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
   .variation-chip{padding:6px 12px;border-radius:16px;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);font-size:12px;cursor:pointer;}
+  .variation-chip.active{background:var(--accent);border-color:var(--accent);color:#fff;}
 
   .set-row{display:grid;grid-template-columns:26px 1fr 1fr 40px;gap:8px;align-items:center;margin-bottom:8px;}
   .set-row .set-num{color:var(--text-muted);font-size:14px;text-align:center;}
@@ -473,9 +474,10 @@
     <div class="section">
       <div class="card hidden" id="last-time-card"></div>
 
-      <label class="field-label">✏️ Nota (variação do exercício)</label>
-      <input type="text" id="note-input" placeholder="Ex: barra triângulo">
+      <label class="field-label">🔧 Variação do exercício</label>
       <div class="variation-chips" id="variation-chips"></div>
+      <input type="text" id="note-input" placeholder="Outra variação (opcional)" style="margin-top:8px;">
+      <div class="label" id="cardio-hint" style="margin-top:4px;"></div>
 
       <div class="section-title" style="margin-top:22px;">📝 Séries</div>
       <div id="sets-container"></div>
@@ -576,15 +578,20 @@
   }
 
   const EXERCISES = {
-    peito:  { label:'Peito',  items:['Supino reto','Supino inclinado','Crucifixo (voador)','Cross over'] },
-    costas: { label:'Costas', items:['Puxada alta','Remada baixa','Remada curvada'] },
-    perna:  { label:'Perna',  items:['Leg press','Cadeira extensora','Mesa flexora','Agachamento','Panturrilha'] },
+    peito:  { label:'Peito',  items:['Supino reto','Supino inclinado','Supino declinado','Crucifixo (voador)','Cross over','Pullover'] },
+    costas: { label:'Costas', items:['Puxada alta','Remada baixa','Remada curvada','Barra fixa (pull-up)','Pulldown unilateral'] },
+    perna:  { label:'Perna',  items:['Leg press','Cadeira extensora','Mesa flexora','Cadeira abdutora','Cadeira adutora','Agachamento','Afundo (passada)','Panturrilha'] },
     ombro:  { label:'Ombro',  items:['Desenvolvimento','Elevação lateral','Elevação frontal','Remada alta'] },
-    braco:  { label:'Braço',  items:['Rosca direta','Rosca scott','Tríceps pulley','Tríceps testa'] },
-    core:   { label:'Core',   items:['Abdominal máquina','Prancha','Elevação de pernas'] }
+    braco:  { label:'Braço',  items:['Rosca direta','Rosca scott','Rosca martelo','Tríceps pulley','Tríceps testa','Tríceps corda','Mergulho no banco'] },
+    core:   { label:'Core',   items:['Abdominal máquina','Prancha','Elevação de pernas'] },
+    cardio: { label:'Cardio', items:['Corrida na esteira'] }
   };
 
-  const GROUP_EMOJI = { peito:'🏋️', costas:'🚣', perna:'🦵', ombro:'🙆', braco:'💪', core:'🧘' };
+  const GROUP_EMOJI = { peito:'🏋️', costas:'🚣', perna:'🦵', ombro:'🙆', braco:'💪', core:'🧘', cardio:'🏃' };
+
+  // Exercícios "de cardio" usam distância/tempo em vez de peso/reps nas séries.
+  const CARDIO_GROUPS = new Set(['cardio']);
+  function isCardioGroup(group){ return CARDIO_GROUPS.has(group); }
 
   const FEELINGS = [
     { id:'bem', label:'\u{1F4AA} Bem' },
@@ -615,7 +622,18 @@
     'Tríceps testa': '<svg viewBox="0 0 40 40"><rect x="6" y="24" width="20" height="5" rx="1.5"/><line x1="20" y1="24" x2="20" y2="12"/><path d="M12 8 L28 8"/><circle cx="12" cy="8" r="2.6"/><circle cx="28" cy="8" r="2.6"/></svg>',
     'Abdominal máquina': '<svg viewBox="0 0 40 40"><rect x="8" y="20" width="10" height="10" rx="1.5"/><path d="M18 22 Q28 22 30 10"/><circle cx="30" cy="10" r="2.4"/></svg>',
     'Prancha': '<svg viewBox="0 0 40 40"><line x1="6" y1="20" x2="32" y2="14"/><line x1="6" y1="20" x2="6" y2="28"/><line x1="32" y1="14" x2="32" y2="22"/></svg>',
-    'Elevação de pernas': '<svg viewBox="0 0 40 40"><line x1="10" y1="4" x2="30" y2="4"/><line x1="20" y1="4" x2="20" y2="20"/><path d="M20 20 L30 10"/><path d="M27 9 L30 10 L29 13"/></svg>'
+    'Elevação de pernas': '<svg viewBox="0 0 40 40"><line x1="10" y1="4" x2="30" y2="4"/><line x1="20" y1="4" x2="20" y2="20"/><path d="M20 20 L30 10"/><path d="M27 9 L30 10 L29 13"/></svg>',
+    'Supino declinado': '<svg viewBox="0 0 40 40"><circle cx="8" cy="14" r="3"/><circle cx="32" cy="14" r="3"/><line x1="11" y1="14" x2="29" y2="14"/><line x1="10" y1="22" x2="26" y2="30" stroke-width="5"/></svg>',
+    'Pullover': '<svg viewBox="0 0 40 40"><rect x="10" y="26" width="20" height="5" rx="1.5"/><path d="M20 26 L20 12 L10 6"/><circle cx="10" cy="6" r="2.6"/></svg>',
+    'Barra fixa (pull-up)': '<svg viewBox="0 0 40 40"><line x1="6" y1="8" x2="34" y2="8"/><path d="M12 8 L12 18 M28 8 L28 18"/><circle cx="20" cy="24" r="3"/><line x1="20" y1="27" x2="20" y2="34"/></svg>',
+    'Pulldown unilateral': '<svg viewBox="0 0 40 40"><line x1="24" y1="6" x2="24" y2="16"/><path d="M24 16 L16 28"/><circle cx="16" cy="28" r="2.4"/></svg>',
+    'Cadeira abdutora': '<svg viewBox="0 0 40 40"><rect x="16" y="8" width="8" height="10" rx="1.5"/><path d="M16 18 L6 30 M24 18 L34 30"/><circle cx="6" cy="30" r="2.4"/><circle cx="34" cy="30" r="2.4"/></svg>',
+    'Cadeira adutora': '<svg viewBox="0 0 40 40"><rect x="16" y="8" width="8" height="10" rx="1.5"/><path d="M10 30 L18 18 M30 30 L22 18"/><circle cx="10" cy="30" r="2.4"/><circle cx="30" cy="30" r="2.4"/></svg>',
+    'Afundo (passada)': '<svg viewBox="0 0 40 40"><circle cx="16" cy="8" r="3"/><path d="M16 11 L14 22 L8 32 M16 18 L26 22 L28 32"/></svg>',
+    'Rosca martelo': '<svg viewBox="0 0 40 40"><line x1="14" y1="30" x2="14" y2="16"/><path d="M14 16 Q14 6 24 6"/><rect x="20" y="3" width="8" height="6" rx="1.5"/></svg>',
+    'Tríceps corda': '<svg viewBox="0 0 40 40"><line x1="20" y1="4" x2="20" y2="16"/><path d="M20 16 L14 26 M20 16 L26 26"/><circle cx="14" cy="28" r="2" fill="#000"/><circle cx="26" cy="28" r="2" fill="#000"/></svg>',
+    'Mergulho no banco': '<svg viewBox="0 0 40 40"><rect x="4" y="24" width="14" height="4" rx="1.5"/><rect x="26" y="24" width="10" height="4" rx="1.5"/><path d="M18 24 L26 24"/><circle cx="30" cy="14" r="3"/><line x1="30" y1="17" x2="30" y2="24"/></svg>',
+    'Corrida na esteira': '<svg viewBox="0 0 40 40"><rect x="4" y="28" width="32" height="4" rx="1.5"/><circle cx="26" cy="10" r="3"/><path d="M26 13 L22 22 L28 22 M22 22 L16 28 M28 22 L32 30"/></svg>'
   };
 
   function getDefaultExerciseIcon(){
@@ -655,7 +673,23 @@
     'Tríceps testa': ['barra W','halteres'],
     'Abdominal máquina': ['padrão','com peso extra'],
     'Prancha': ['tradicional','lateral','com elevação de perna'],
-    'Elevação de pernas': ['no solo','na barra fixa','na cadeira romana']
+    'Elevação de pernas': ['no solo','na barra fixa','na cadeira romana'],
+    'Supino declinado': ['barra','halteres'],
+    'Pullover': ['halteres','polia'],
+    'Barra fixa (pull-up)': ['pegada pronada','pegada supinada','pegada aberta','assistida'],
+    'Pulldown unilateral': ['pegada neutra','pegada pronada'],
+    'Cadeira abdutora': ['padrão','com pausa no topo'],
+    'Cadeira adutora': ['padrão','com pausa no topo'],
+    'Afundo (passada)': ['livre','no smith','búlgaro'],
+    'Rosca martelo': ['halteres','corda'],
+    'Tríceps corda': ['pegada neutra','com rotação externa'],
+    'Mergulho no banco': ['pés no chão','pés elevados','com peso extra']
+  };
+
+  // Corrida na esteira e outros exercícios de cardio usam distância/tempo,
+  // então registramos aqui exemplos de "intensidade" em vez de pegada/equipamento.
+  const CARDIO_VARIATIONS = {
+    'Corrida na esteira': ['aquecimento','ritmo leve','intervalado','inclinação']
   };
 
   let workouts = [];
@@ -1240,9 +1274,9 @@
       alert('Nenhum treino registrado ainda para exportar.');
       return;
     }
-    const header = ['Data','Grupo muscular','Exercício','Séries (peso x reps)','Nota','Sensação'];
+    const header = ['Data','Grupo muscular','Exercício','Séries','Variação','Sensação'];
     const rows = [...workouts].sort((a,b)=> a.date.localeCompare(b.date)).map(w => {
-      const setsText = w.sets.map(s => `${s.peso}kg x ${s.reps}`).join('; ');
+      const setsText = w.sets.map(s => formatSet(s)).join('; ');
       const feeling = FEELINGS.find(f=>f.id===w.feeling);
       return [
         w.date,
@@ -1281,10 +1315,10 @@
 
     const content = Object.entries(groups).map(([group, entries]) => {
       const rowsHtml = entries.map(w => {
-        const setsText = w.sets.map(s => `${s.peso}kg x ${s.reps}`).join(', ');
+        const setsText = w.sets.map(s => formatSet(s)).join(', ');
         const feeling = FEELINGS.find(f => f.id === w.feeling);
         const feelingText = feeling ? feeling.label : '';
-        const isPR = w.sets.some(s => s.peso === recordForExercise(w.exercise) && s.peso > 0);
+        const isPR = !isCardioGroup(w.group) && w.sets.some(s => s.peso === recordForExercise(w.exercise) && s.peso > 0);
         return `<div class="list-row">
             <div class="exercise-icon">${EXERCISE_ICONS[w.exercise] || getDefaultExerciseIcon()}</div>
             <div style="flex:1;">
@@ -1476,7 +1510,7 @@
     }else if (metric === 'records'){
       container.innerHTML = `<div class="card">${renderRecordsList()}</div>`;
     }else{
-      const allExercises = getAllExercisesFlat().map(e=>e.exercise);
+      const allExercises = getAllExercisesFlat().filter(e=>!isCardioGroup(e.group)).map(e=>e.exercise);
       const options = allExercises.map(ex=> `<option value="${ex}">${ex}</option>`).join('');
       container.innerHTML = `<div class="card">
           <label class="field-label">Exercício</label>
@@ -1628,7 +1662,7 @@
       const row = document.createElement('div');
       row.className = 'list-row';
       row.style.cursor = 'pointer';
-      const lastLabel = last ? `${last.sets[last.sets.length-1].peso}kg` : 'Novo';
+      const lastLabel = last ? formatSetShort(last.sets[last.sets.length-1]) : 'Novo';
       row.innerHTML = `<div class="exercise-icon">${EXERCISE_ICONS[ex]||getDefaultExerciseIcon()}</div><div style="flex:1;"><div class="name">${ex}</div></div><div class="value">${lastLabel}</div>`;
       row.onclick = () => openLogExercise(ex);
       list.appendChild(row);
@@ -1820,18 +1854,13 @@
       const d = daysSince(last.date);
       const when = d<=0 ? 'hoje' : d===1 ? 'há 1 dia' : `há ${d} dias`;
       lastCard.classList.remove('hidden');
-      lastCard.innerHTML = `<div class="label">Último treino (${when})</div><div class="value-big">${lastSet.peso}kg x ${lastSet.reps}</div>${last.note ? `<div class="label" style="margin-top:6px;">${last.note}</div>` : ''}`;
+      lastCard.innerHTML = `<div class="label">Último treino (${when})</div><div class="value-big">${formatSet(lastSet)}</div>${last.note ? `<div class="label" style="margin-top:6px;">${last.note}</div>` : ''}`;
     }else{
       lastCard.classList.add('hidden');
     }
 
-    document.getElementById('note-input').value = '';
-    const variations = EXERCISE_VARIATIONS[exercise] || [];
-    const chipsContainer = document.getElementById('variation-chips');
-    chipsContainer.innerHTML = variations.map(v=> `<button type="button" class="variation-chip" data-v="${v}">${v}</button>`).join('');
-    chipsContainer.querySelectorAll('.variation-chip').forEach(btn=>{
-      btn.onclick = () => { document.getElementById('note-input').value = btn.dataset.v; };
-    });
+    setupVariationChips(exercise, '');
+    document.getElementById('cardio-hint').textContent = isCardioGroup(state.group) ? 'Registrada em distância (km) e tempo (min), não peso.' : '';
 
     const dateInput = document.getElementById('date-input');
     dateInput.max = todayISO();
@@ -1847,7 +1876,7 @@
     state.group = w.group;
     state.exercise = w.exercise;
     state.editId = w.id;
-    state.sets = w.sets.map(s => ({ peso:s.peso, reps:s.reps }));
+    state.sets = w.sets.map(s => isCardioGroup(w.group) ? { distancia:s.distancia, tempo:s.tempo } : { peso:s.peso, reps:s.reps });
     state.feeling = w.feeling || null;
     state.date = w.date;
 
@@ -1857,13 +1886,8 @@
     document.getElementById('btn-save-workout').textContent = '💾 Salvar alterações';
     document.getElementById('last-time-card').classList.add('hidden');
 
-    document.getElementById('note-input').value = w.note || '';
-    const variations = EXERCISE_VARIATIONS[w.exercise] || [];
-    const chipsContainer = document.getElementById('variation-chips');
-    chipsContainer.innerHTML = variations.map(v=> `<button type="button" class="variation-chip" data-v="${v}">${v}</button>`).join('');
-    chipsContainer.querySelectorAll('.variation-chip').forEach(btn=>{
-      btn.onclick = () => { document.getElementById('note-input').value = btn.dataset.v; };
-    });
+    setupVariationChips(w.exercise, w.note || '');
+    document.getElementById('cardio-hint').textContent = isCardioGroup(w.group) ? 'Registrada em distância (km) e tempo (min), não peso.' : '';
 
     const dateInput = document.getElementById('date-input');
     dateInput.max = todayISO();
@@ -1875,13 +1899,60 @@
     showView('view-log');
   }
 
+  // Uma série normal guarda {peso, reps}; uma série de cardio guarda {distancia, tempo}.
+  function emptySet(){
+    return isCardioGroup(state.group) ? { distancia:null, tempo:null } : { peso:null, reps:null };
+  }
+
+  function formatSet(s){
+    if (s.distancia != null || s.tempo != null) return `${s.distancia ?? '?'}km em ${s.tempo ?? '?'}min`;
+    return `${s.peso}kg x ${s.reps}`;
+  }
+
+  function formatSetShort(s){
+    if (s.distancia != null || s.tempo != null) return `${s.distancia ?? '?'}km`;
+    return `${s.peso}kg`;
+  }
+
+  function getVariationsFor(exercise){
+    return EXERCISE_VARIATIONS[exercise] || CARDIO_VARIATIONS[exercise] || [];
+  }
+
+  // A variação (ex: "pegada aberta", "ritmo leve") é uma especificação do
+  // exercício, não um comentário livre — por isso os chips funcionam como um
+  // seletor: escolher um chip marca ele como ativo e preenche o campo.
+  function setupVariationChips(exercise, currentValue){
+    const noteInput = document.getElementById('note-input');
+    noteInput.value = currentValue || '';
+    const variations = getVariationsFor(exercise);
+    const chipsContainer = document.getElementById('variation-chips');
+    chipsContainer.innerHTML = variations.map(v=> `<button type="button" class="variation-chip${v===currentValue?' active':''}" data-v="${v}">${v}</button>`).join('');
+    chipsContainer.querySelectorAll('.variation-chip').forEach(btn=>{
+      btn.onclick = () => {
+        const alreadyActive = btn.classList.contains('active');
+        chipsContainer.querySelectorAll('.variation-chip').forEach(b=> b.classList.remove('active'));
+        noteInput.value = alreadyActive ? '' : btn.dataset.v;
+        if (!alreadyActive) btn.classList.add('active');
+      };
+    });
+    noteInput.addEventListener('input', () => {
+      chipsContainer.querySelectorAll('.variation-chip').forEach(b=> b.classList.toggle('active', b.dataset.v === noteInput.value));
+    });
+  }
+
   function renderSets(){
     const container = document.getElementById('sets-container');
     container.innerHTML = '';
+    const cardio = isCardioGroup(state.group);
     state.sets.forEach((s,i)=>{
       const row = document.createElement('div');
       row.className = 'set-row';
-      row.innerHTML = `
+      row.innerHTML = cardio ? `
+        <div class="set-num">${i+1}</div>
+        <input type="number" inputmode="decimal" placeholder="km" value="${s.distancia ?? ''}" data-idx="${i}" data-field="distancia">
+        <input type="number" inputmode="numeric" placeholder="min" value="${s.tempo ?? ''}" data-idx="${i}" data-field="tempo">
+        <button class="remove" data-remove="${i}">&times;</button>
+      ` : `
         <div class="set-num">${i+1}</div>
         <input type="number" inputmode="decimal" placeholder="kg" value="${s.peso ?? ''}" data-idx="${i}" data-field="peso">
         <input type="number" inputmode="numeric" placeholder="reps" value="${s.reps ?? ''}" data-idx="${i}" data-field="reps">
@@ -1906,30 +1977,33 @@
   }
 
   function addSet(){
-    state.sets.push({ peso:null, reps:null });
+    state.sets.push(emptySet());
     renderSets();
   }
 
   function repeatLastSet(){
     if (state.sets.length > 0){
       const last = state.sets[state.sets.length-1];
-      state.sets.push({ peso:last.peso, reps:last.reps });
+      state.sets.push({ ...last });
     }else{
       const lastEntry = lastEntryForExercise(state.exercise);
       if (lastEntry){
         const s = lastEntry.sets[lastEntry.sets.length-1];
-        state.sets.push({ peso:s.peso, reps:s.reps });
+        state.sets.push(isCardioGroup(state.group) ? { distancia:s.distancia, tempo:s.tempo } : { peso:s.peso, reps:s.reps });
       }else{
-        state.sets.push({ peso:null, reps:null });
+        state.sets.push(emptySet());
       }
     }
     renderSets();
   }
 
   async function saveWorkout(){
-    const validSets = state.sets.filter(s => s.peso !== null && s.reps !== null && !isNaN(s.peso) && !isNaN(s.reps));
+    const cardio = isCardioGroup(state.group);
+    const validSets = cardio
+      ? state.sets.filter(s => s.distancia !== null && s.tempo !== null && !isNaN(s.distancia) && !isNaN(s.tempo))
+      : state.sets.filter(s => s.peso !== null && s.reps !== null && !isNaN(s.peso) && !isNaN(s.reps));
     if (validSets.length === 0){
-      alert('Adicione ao menos uma série com peso e repetições.');
+      alert(cardio ? 'Adicione ao menos uma série com distância e tempo.' : 'Adicione ao menos uma série com peso e repetições.');
       return;
     }
     const chosenDate = document.getElementById('date-input').value || state.date;
@@ -1958,9 +2032,9 @@
         state.editId = null;
         openDayDetail(chosenDate);
       }else{
-        const prevRecord = recordForExercise(state.exercise);
-        const newMax = Math.max(...validSets.map(s=>s.peso));
-        const isRecord = newMax > prevRecord;
+        const prevRecord = cardio ? 0 : recordForExercise(state.exercise);
+        const newMax = cardio ? 0 : Math.max(...validSets.map(s=>s.peso));
+        const isRecord = !cardio && newMax > prevRecord;
 
         const savedEntry = await insertWorkout(entry);
         workouts.push(savedEntry);

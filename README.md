@@ -102,9 +102,10 @@ Depois disso o app abre com ícone próprio, em tela cheia, sem a barra do naveg
 ## Funcionalidades
 
 - Login e cadastro com e-mail e senha, e login com Google (Supabase Auth), dados sincronizados entre dispositivos
-- Registro rápido de treino: grupo muscular, exercício, séries (peso e repetições), nota de variação, sensação após o treino
-- Base de 23 exercícios pré-carregados em 6 grupos musculares, cada um com ícone SVG
-- Sugestões de variação por exercício em chips
+- Registro rápido de treino: grupo muscular, exercício, séries (peso e repetições), sensação após o treino
+- Base de 34 exercícios pré-carregados em 7 grupos musculares (peito, costas, perna, ombro, braço, core e cardio), cada um com ícone SVG — inclui cadeira abdutora, cadeira adutora, barra fixa, afundo e outros
+- Variação do exercício (ex: "pegada aberta", "halteres") como especificação selecionável em chips, não como comentário livre
+- Corrida na esteira como exercício de cardio/aquecimento, registrada em distância (km) e tempo (min) em vez de peso e repetições
 - Histórico agrupado por dia de treino
 - Dashboard com filtros: treinos por mês, por grupo muscular, evolução de peso por exercício (gráficos SVG feitos à mão)
 - Sequência de dias treinados (streak) 🔥
