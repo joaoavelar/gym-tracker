@@ -49,42 +49,61 @@ O botão "Entrar com Google" já está no app, mas só funciona depois de config
 
 ### 5. (Opcional) IA que sugere exercícios e variações
 
-A aba "🤖 IA" analisa seu histórico de treinos e sugere exercícios novos, variações e técnicas de intensidade (drop set, rest-pause etc), usando a API da Claude. Como o app não tem servidor próprio, essa chamada passa por uma **Supabase Edge Function** (`supabase/functions/analyze-workouts`) — assim a chave da API fica protegida no servidor, nunca exposta no navegador.
+A aba "🤖 IA" analisa seu histórico de treinos e sugere exercícios novos, variações e técnicas de intensidade (drop set, rest-pause etc). Como o app não tem servidor próprio, essa chamada passa por uma **Supabase Edge Function** — assim a chave da API de IA fica protegida no servidor, nunca exposta no navegador. Existem duas versões dessa função, e o app decide qual usar pela constante `AI_FUNCTION_NAME` no início do `<script>` do `index.html`:
 
-**1. Pegue uma chave de API da Anthropic:**
+- `analyze-workouts-gemini` (Gemini, **gratuito**) — é a que o app usa por padrão agora, boa pra testar a funcionalidade sem gastar nada.
+- `analyze-workouts` (Claude, pago mas muito barato) — troque pra essa quando quiser a qualidade de sugestão da Claude em produção.
 
-Crie uma conta em [console.anthropic.com](https://console.anthropic.com), gere uma API key em **API Keys** e guarde-a (começa com `sk-ant-`).
+As duas fazem exatamente a mesma análise (mesmo prompt, mesmas regras de segurança sobre carga/descanso) — só o "motor" de IA por trás muda.
 
-**2. Instale a Supabase CLI e faça login:**
+#### 5a. Versão gratuita (Gemini) — recomendada pra testar
+
+**1. Pegue uma chave de API gratuita do Gemini:**
+
+Entre em [aistudio.google.com/apikey](https://aistudio.google.com/apikey) com uma conta Google, clique em **Create API key** e copie a chave.
+
+**2. Instale a Supabase CLI, faça login e vincule o projeto** (pule se já tiver feito isso antes):
 
 ```sh
 npm install -g supabase
 supabase login
-```
-
-**3. Vincule seu projeto** (rode dentro da pasta do repositório; o project ref aparece na URL do painel Supabase, ex: `npmqjbyizquffmgblivs`):
-
-```sh
 supabase link --project-ref SEU_PROJECT_REF
 ```
 
-**4. Configure a chave da Anthropic como segredo do projeto:**
+O project ref aparece na URL do painel Supabase (ex: `npmqjbyizquffmgblivs`).
+
+**3. Configure a chave do Gemini como segredo do projeto:**
+
+```sh
+supabase secrets set GEMINI_API_KEY=SUA_CHAVE_AQUI
+```
+
+**4. Publique a função:**
+
+```sh
+supabase functions deploy analyze-workouts-gemini
+```
+
+Pronto — o botão "🔍 Analisar meus treinos" já funciona. É preciso ter pelo menos 3 treinos registrados para a análise funcionar.
+
+**Custo e limites:** o nível gratuito do Gemini não pede cartão de crédito, mas tem um limite de chamadas por dia (varia por modelo — confira em [ai.google.dev/gemini-api/docs/rate-limits](https://ai.google.dev/gemini-api/docs/rate-limits)). O cooldown de 60 minutos entre análises (constante `MIN_INTERVAL_MINUTES` no início do arquivo da função) já ajuda a não estourar esse limite sozinho.
+
+#### 5b. Versão com Claude — pra quando quiser produção
+
+**1.** Crie uma conta em [console.anthropic.com](https://console.anthropic.com), gere uma API key em **API Keys** (começa com `sk-ant-`).
+
+**2.** Configure a chave e publique:
 
 ```sh
 supabase secrets set ANTHROPIC_API_KEY=sk-ant-SUA_CHAVE_AQUI
-```
-
-**5. Publique a função:**
-
-```sh
 supabase functions deploy analyze-workouts
 ```
 
-Pronto — a partir daí o botão "🔍 Analisar meus treinos" no app já funciona. É preciso ter pelo menos 3 treinos registrados para a análise funcionar. As sugestões ficam salvas no seu perfil (Supabase) e aparecem de novo ao reabrir a aba, sem precisar reanalisar toda vez.
+**3.** No `index.html`, troque a constante `AI_FUNCTION_NAME` de `'analyze-workouts-gemini'` para `'analyze-workouts'`, salve, faça commit e publique de novo.
 
-**Custo:** a função usa `claude-haiku-4-5`, o modelo mais barato da Claude ($1 por milhão de tokens de entrada, $5 de saída) — cada análise custa uma fração de centavo (bem menos de US$ 0,01). Não existe um tier gratuito permanente na API da Anthropic, mas contas novas costumam vir com créditos iniciais para teste; confira em [console.anthropic.com](https://console.anthropic.com) → Billing. Se quiser mudar o modelo, edite a constante `MODEL` em `supabase/functions/analyze-workouts/index.ts` e rode `supabase functions deploy analyze-workouts` de novo.
+**Custo:** a função usa `claude-haiku-4-5`, o modelo mais barato da Claude ($1 por milhão de tokens de entrada, $5 de saída) — cada análise custa uma fração de centavo (bem menos de US$ 0,01). Não existe um tier gratuito permanente na API da Anthropic, mas contas novas costumam vir com créditos iniciais para teste; confira em [console.anthropic.com](https://console.anthropic.com) → Billing.
 
-**Limite de uso:** para evitar gasto por cliques repetidos, a função só permite uma nova análise a cada `MIN_INTERVAL_MINUTES` (60 minutos por padrão) — tentativas antes disso são bloqueadas sem chamar a API. O botão no app já reflete esse cooldown. Ajuste a constante no início do arquivo da função se quiser um intervalo diferente.
+Nas duas versões, as sugestões ficam salvas no seu perfil (Supabase) e aparecem de novo ao reabrir a aba, sem precisar reanalisar toda vez. O limite de uso (`MIN_INTERVAL_MINUTES`, 60 minutos por padrão) evita gasto/abuso por cliques repetidos — ajuste a constante no início do arquivo da função se quiser um intervalo diferente.
 
 ### 6. (Opcional) Dashboard de admin — só pra você
 

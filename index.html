@@ -2384,6 +2384,12 @@
   const SUGGESTION_TYPE_LABEL = { grupo:'Grupo muscular', exercicio:'Exercício', variacao:'Variação', carga:'Carga', tecnica:'Técnica' };
   const AI_COOLDOWN_MINUTES = 60;
 
+  // Qual Edge Function chamar pra análise de IA. 'analyze-workouts-gemini' usa
+  // o nível gratuito do Gemini (bom pra testar sem gastar). Quando quiser
+  // trocar pra Claude, mude para 'analyze-workouts' e faça o deploy dela
+  // (veja o README, seção 5).
+  const AI_FUNCTION_NAME = 'analyze-workouts-gemini';
+
   function formatCooldown(totalMinutes){
     if (totalMinutes < 60) return `${totalMinutes}min`;
     const h = Math.floor(totalMinutes/60);
@@ -2447,7 +2453,7 @@
     btn.textContent = 'Analisando...';
     card.innerHTML = '<div class="empty-state">Analisando seu histórico de treinos...</div>';
     try{
-      const { data, error } = await sb.functions.invoke('analyze-workouts', {
+      const { data, error } = await sb.functions.invoke(AI_FUNCTION_NAME, {
         body: { restPreferenceSeconds: restDuration }
       });
       if (error) throw error;
