@@ -206,6 +206,8 @@
   .weight-input-row .btn-primary{width:auto;padding:12px 18px;margin-top:0;}
 
   .photo-preview{width:100%;max-height:360px;object-fit:cover;border-radius:var(--radius);display:block;}
+  .admin-photo-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+  .admin-photo-thumb{width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--border);}
   .photo-badge{font-size:12px;}
 
   .badge-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
@@ -263,6 +265,7 @@
   <div id="view-home" class="view top-level hidden">
     <header class="top">
       <h1>Treino</h1>
+      <button class="icon-btn hidden" id="btn-admin-dashboard" type="button" title="Dashboard de admin">🛠️</button>
       <span class="date" id="home-date"></span>
     </header>
     <div class="greeting-line" id="greeting-line"></div>
@@ -553,6 +556,17 @@
     </div>
   </div>
 
+  <div id="view-admin" class="view hidden">
+    <div class="back-row">
+      <button class="back-btn" id="back-admin">&#8592;</button>
+      <h2 style="margin:0;font-size:18px;">🛠️ Dashboard de admin</h2>
+    </div>
+    <div class="section">
+      <div class="label" id="admin-summary" style="margin-bottom:14px;"></div>
+      <div id="admin-user-list"></div>
+    </div>
+  </div>
+
   <div id="tab-bar" class="tab-bar hidden">
     <button class="tab-btn active" id="btn-tab-home" data-tab="view-home"><span class="icon">🏠</span><span>Início</span></button>
     <button class="tab-btn" id="btn-tab-history" data-tab="view-history"><span class="icon">📅</span><span>Histórico</span></button>
@@ -570,6 +584,11 @@
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5wbXFqYnlpenF1ZmZtZ2JsaXZzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg3NDkxNDcsImV4cCI6MjEwNDMyNTE0N30.AA95pZdLatMET93xCt0vfdw3EarJG8R1K2W2Hn0Nvpg';
 
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // Só controla se o botão do dashboard de admin aparece nesta tela - não é
+  // segurança de verdade (a Edge Function admin-dashboard confere de novo,
+  // no servidor, comparando com o segredo ADMIN_EMAIL do projeto Supabase).
+  const ADMIN_EMAIL = 'avelar_joaopedro@hotmail.com';
 
   if ('serviceWorker' in navigator){
     window.addEventListener('load', () => {
@@ -2183,6 +2202,10 @@
     await Promise.all([loadWorkouts(), loadProfile(), loadWeightLogs(), loadWorkoutPhotos(), loadCustomExercises(), loadTemplates()]);
     updateReminderButtonLabel();
     maybeShowTrainingReminder();
+    // Botão só de UI - o acesso de verdade é decidido no servidor (Edge
+    // Function), então esconder o botão aqui é conveniência, não segurança.
+    const isAdmin = (currentUser.email || '').trim().toLowerCase() === ADMIN_EMAIL;
+    document.getElementById('btn-admin-dashboard').classList.toggle('hidden', !isAdmin);
     if (!userName){
       showView('view-onboarding');
     }else{
@@ -2287,6 +2310,8 @@
       goHome();
     };
     document.getElementById('back-day-detail').onclick = () => showView('view-history');
+    document.getElementById('btn-admin-dashboard').onclick = () => { showView('view-admin'); loadAdminDashboard(); };
+    document.getElementById('back-admin').onclick = () => showView('view-home');
     document.getElementById('btn-reset').onclick = resetData;
     document.getElementById('btn-logout').onclick = handleLogout;
     document.getElementById('btn-reminders').onclick = toggleReminders;
@@ -2440,6 +2465,50 @@
     }finally{
       updateAnalyzeButtonState();
     }
+  }
+
+  async function loadAdminDashboard(){
+    const list = document.getElementById('admin-user-list');
+    const summary = document.getElementById('admin-summary');
+    summary.textContent = '';
+    list.innerHTML = '<div class="empty-state">Carregando...</div>';
+    try{
+      const { data, error } = await sb.functions.invoke('admin-dashboard');
+      if (error) throw error;
+      if (data && data.error) throw new Error(data.error);
+      renderAdminDashboard(data.users || []);
+    }catch(e){
+      console.error('Erro ao carregar dashboard de admin', e);
+      list.innerHTML = `<div class="empty-state">${(e && e.message) || 'Não foi possível carregar o dashboard agora.'}</div>`;
+    }
+  }
+
+  function renderAdminDashboard(users){
+    const summary = document.getElementById('admin-summary');
+    const list = document.getElementById('admin-user-list');
+    summary.textContent = `${users.length} usuário${users.length===1?'':'s'} cadastrado${users.length===1?'':'s'}`;
+    if (users.length === 0){
+      list.innerHTML = '<div class="empty-state">Nenhum usuário cadastrado ainda.</div>';
+      return;
+    }
+    list.innerHTML = users.map(u => {
+      const created = u.createdAt ? new Date(u.createdAt).toLocaleDateString('pt-BR') : '?';
+      const lastSignIn = u.lastSignInAt ? new Date(u.lastSignInAt).toLocaleDateString('pt-BR') : 'nunca';
+      const lastWorkout = u.lastWorkoutDate ? u.lastWorkoutDate.split('-').reverse().join('/') : 'nunca treinou';
+      const weight = u.latestWeightKg != null ? `${u.latestWeightKg}kg (${u.latestWeightDate.split('-').reverse().join('/')})` : '—';
+      const photosHtml = u.photos.length > 0
+        ? `<div class="admin-photo-row">${u.photos.map(p => `<a href="${p.url}" target="_blank" rel="noopener"><img src="${p.url}" class="admin-photo-thumb" title="${p.date.split('-').reverse().join('/')}"></a>`).join('')}</div>`
+        : '';
+      return `<div class="card" style="margin-bottom:12px;">
+          <div class="name">${u.name || '(sem nome)'}</div>
+          <div class="sub">${u.email}</div>
+          <div class="label" style="margin-top:8px;">Cadastro: ${created} · Último login: ${lastSignIn}</div>
+          <div class="label">Treinos: ${u.workoutsCount} · Sequência atual: ${u.currentStreak} dia${u.currentStreak===1?'':'s'} · Último treino: ${lastWorkout}</div>
+          <div class="label">Meta semanal: ${u.weeklyGoal ?? '—'} · Meta mensal: ${u.monthlyGoal ?? '—'} · Meta de peso: ${u.weightGoalKg ?? '—'}kg</div>
+          <div class="label">Peso mais recente: ${weight} (${u.weightLogsCount} registro${u.weightLogsCount===1?'':'s'})</div>
+          ${photosHtml}
+        </div>`;
+    }).join('');
   }
 
   function renderGoals(){

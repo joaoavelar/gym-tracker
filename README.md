@@ -86,11 +86,35 @@ Pronto — a partir daí o botão "🔍 Analisar meus treinos" no app já funcio
 
 **Limite de uso:** para evitar gasto por cliques repetidos, a função só permite uma nova análise a cada `MIN_INTERVAL_MINUTES` (60 minutos por padrão) — tentativas antes disso são bloqueadas sem chamar a API. O botão no app já reflete esse cooldown. Ajuste a constante no início do arquivo da função se quiser um intervalo diferente.
 
-### 6. Abrir o app
+### 6. (Opcional) Dashboard de admin — só pra você
+
+Existe uma segunda Edge Function, `supabase/functions/admin-dashboard`, que mostra quem está cadastrado no app e alguns dados de uso de cada pessoa (treinos registrados, sequência atual, peso corporal, fotos de treino). Só o e-mail configurado como admin consegue acessar — a checagem acontece no servidor, então mesmo alterando o código do app no navegador ninguém mais consegue ver essa tela.
+
+Diferente da função de IA, esta **não chama nenhuma API paga** — só lê o próprio banco do Supabase, então não tem custo além do que o plano gratuito do Supabase já cobre.
+
+**1. Configure o seu e-mail como admin:**
+
+```sh
+supabase secrets set ADMIN_EMAIL=seu-email@exemplo.com
+```
+
+Use o mesmo e-mail com que você faz login no app. Troque também a constante `ADMIN_EMAIL` no início do `<script>` do `index.html` (é só o que decide se o botão aparece pra você — a segurança de verdade é a checagem no servidor acima).
+
+**2. Publique a função:**
+
+```sh
+supabase functions deploy admin-dashboard
+```
+
+Pronto — um ícone 🛠️ aparece no topo da tela inicial só quando você estiver logado com o e-mail configurado, abrindo a lista de usuários cadastrados.
+
+**Privacidade:** essa função enxerga dados de todo mundo que se cadastrar no app, incluindo peso corporal e fotos de treino — não tem como restringir por usuário. Só ative se você é o único administrador de confiança, e avise quem for testar o app que você (o dono do projeto) tem acesso a esses dados.
+
+### 7. Abrir o app
 
 Abra `index.html` diretamente no navegador, ou publique a pasta em qualquer serviço de hospedagem estática.
 
-### 7. Instalar no celular como app (PWA)
+### 8. Instalar no celular como app (PWA)
 
 O app já é instalável — precisa estar publicado num link `https://` (GitHub Pages, por exemplo; não funciona abrindo o arquivo local).
 
@@ -125,6 +149,7 @@ Depois disso o app abre com ícone próprio, em tela cheia, sem a barra do naveg
 - Modelos de treino (rotina A/B/C): monte uma sequência de exercícios e inicie o treino inteiro com um toque, avançando automaticamente entre eles
 - Exportar todo o histórico de treinos em CSV
 - Lembrete para treinar (notificação local, aparece quando você abre o app — não é push em segundo plano)
+- Dashboard de admin (opcional, só para o dono do app): lista quem está cadastrado e dados de uso de cada pessoa
 
 ## Stack
 
